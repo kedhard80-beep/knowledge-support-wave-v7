@@ -46,6 +46,13 @@ QUALIFY_OPTIONS = {
     "agent_bank_rebalance": "Rééquilibrage par banque",
     "identification": "Identification client / double identité",
     "parental": "Autorisation parentale",
+    # ── Carte Visa Wave ──
+    "visa_fraude":        "Carte Visa — Fraude / Sécurité urgente",
+    "visa_litige":        "Carte Visa — Litige transaction",
+    "visa_remboursement": "Carte Visa — Remboursement",
+    "visa_paiement":      "Carte Visa — Paiement refusé / restriction",
+    "visa_carte":         "Carte Visa — Gestion carte",
+    "visa_info":          "Carte Visa — Information / Tarification",
 }
 
 KEYWORDS = [
@@ -155,6 +162,69 @@ KEYWORDS = [
     ("parental", ["mineur", "compte"], 90),
     ("parental", ["enfant", "compte", "wave"], 90),
     ("parental", ["autorisation", "parentale"], 100),
+    # ── Carte Visa Wave ──
+    # Fraude / Sécurité urgente
+    ("visa_fraude", ["visa", "fraude"], 122),
+    ("visa_fraude", ["visa", "frauduleux"], 122),
+    ("visa_fraude", ["visa", "inconnu", "debit"], 120),
+    ("visa_fraude", ["visa", "inconnu", "paiement"], 120),
+    ("visa_fraude", ["visa", "compromis"], 118),
+    ("visa_fraude", ["visa", "cvv", "bloque"], 118),
+    ("visa_fraude", ["visa", "utilisation", "inconnue"], 118),
+    ("visa_fraude", ["visa", "quelqu"], 112),
+    ("visa_fraude", ["visa", "acces", "carte"], 112),
+    # Litige transaction
+    ("visa_litige", ["visa", "debite", "non", "valide"], 115),
+    ("visa_litige", ["visa", "debite", "deux"], 115),
+    ("visa_litige", ["visa", "double", "debit"], 115),
+    ("visa_litige", ["visa", "double"], 108),
+    ("visa_litige", ["visa", "echoue", "debite"], 115),
+    ("visa_litige", ["visa", "paiement", "echoue", "debite"], 115),
+    ("visa_litige", ["visa", "marchand", "recu"], 110),
+    ("visa_litige", ["visa", "litige"], 112),
+    ("visa_litige", ["visa", "debit", "valide"], 112),
+    # Remboursement Visa
+    ("visa_remboursement", ["visa", "remboursement"], 112),
+    ("visa_remboursement", ["visa", "rembourse"], 112),
+    ("visa_remboursement", ["visa", "annulation", "paiement"], 110),
+    ("visa_remboursement", ["carte", "visa", "remboursement"], 112),
+    ("visa_remboursement", ["visa", "delai", "remboursement"], 108),
+    ("visa_remboursement", ["visa", "article", "recu"], 108),
+    ("visa_remboursement", ["visa", "commande", "annulee"], 108),
+    # Paiement refusé / restriction
+    ("visa_paiement", ["visa", "refuse"], 108),
+    ("visa_paiement", ["visa", "refusee"], 108),
+    ("visa_paiement", ["visa", "paiement", "refuse"], 110),
+    ("visa_paiement", ["visa", "international"], 102),
+    ("visa_paiement", ["visa", "abonnement"], 102),
+    ("visa_paiement", ["visa", "netflix"], 100),
+    ("visa_paiement", ["visa", "spotify"], 100),
+    ("visa_paiement", ["visa", "site", "refuse"], 108),
+    ("visa_paiement", ["visa", "certains", "sites"], 102),
+    ("visa_paiement", ["visa", "systematiquement", "refuse"], 108),
+    # Gestion carte
+    ("visa_carte", ["visa", "bloque"], 100),
+    ("visa_carte", ["visa", "bloquee"], 100),
+    ("visa_carte", ["visa", "debloquer"], 105),
+    ("visa_carte", ["visa", "telephone", "perdu"], 108),
+    ("visa_carte", ["visa", "changer", "telephone"], 102),
+    ("visa_carte", ["visa", "nouveau", "telephone"], 102),
+    ("visa_carte", ["visa", "transferer", "fonds"], 108),
+    ("visa_carte", ["visa", "recuperer", "argent"], 108),
+    ("visa_carte", ["visa", "fonds", "carte"], 102),
+    # Information / tarification Visa
+    ("visa_info", ["visa", "tarif"], 95),
+    ("visa_info", ["visa", "frais"], 95),
+    ("visa_info", ["visa", "activer"], 93),
+    ("visa_info", ["visa", "activation"], 93),
+    ("visa_info", ["visa", "cvv"], 90),
+    ("visa_info", ["visa", "kyc"], 93),
+    ("visa_info", ["virtual", "card"], 90),
+    ("visa_info", ["carte", "visa", "wave"], 85),
+    ("visa_info", ["visa", "verrouiller"], 90),
+    ("visa_info", ["visa", "prepayee"], 93),
+    ("visa_info", ["visa", "option"], 88),
+    ("visa_info", ["visa", "voir", "pas"], 88),
 ]
 
 SIMPLE_DECISIONS = {
@@ -186,6 +256,13 @@ SIMPLE_DECISIONS = {
     "agent_rebalance_limit": ("Limite rééquilibrage agent", "Front compte agent : request to suspend rebalance limits. Ticket visible dans #ci-agent-management."),
     "agent_bank_rebalance": ("Rééquilibrage par banque", "Après bordereau soumis via app + 3h sans UV : demande dans ci-liquidity avec template montant/agent/banque/date."),
     "parental": ("Autorisation parentale", "Mineur KYC2 a besoin d'autorisation parentale. Envoyer liens ToolCI mineur/parent. Si impossible et client accepte, rejet de pièce après identification complète et type de pièce."),
+    # ── Carte Visa Wave ──
+    "visa_fraude":        ("Carte Visa — Fraude urgente", "⚠️ URGENT : Guider le client pour bloquer immédiatement sa carte depuis l'app Wave (Carte > Mes cartes > Bloquer). Transférer ensuite à l'équipe Virtual Visa pour investigation fraude avec : dates et montants des transactions suspectes, noms des marchands."),
+    "visa_litige":        ("Carte Visa — Litige transaction", "Recueillir : date, montant, nom du marchand, statut de la transaction dans l'app (débitée/échouée). Transférer à l'équipe Virtual Visa avec tous ces détails pour ouverture de litige."),
+    "visa_remboursement": ("Carte Visa — Remboursement", "Transférer à l'équipe Virtual Visa avec : date du paiement, montant, marchand, motif du remboursement (article non reçu, annulation, promesse marchand). Le délai est communiqué par l'équipe Virtual Visa."),
+    "visa_paiement":      ("Carte Visa — Paiement refusé", "Vérifier le solde disponible sur la carte. Si solde suffisant, transférer à l'équipe Virtual Visa avec : nom du site/abonnement, type de paiement (international, récurrent, unique), message d'erreur visible."),
+    "visa_carte":         ("Carte Visa — Gestion carte", "Transférer à l'équipe Virtual Visa en précisant la nature du problème : carte bloquée, récupération de fonds après perte téléphone, transfert vers compte principal, changement de téléphone."),
+    "visa_info":          ("Carte Visa — Information", "Pour toute demande d'information sur la carte Visa Wave (tarifs, frais, activation, CVV, éligibilité KYC, verrouillage, option non visible) : transférer à l'équipe Virtual Visa."),
 }
 
 ROLE = {
