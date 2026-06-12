@@ -217,17 +217,18 @@ KEYWORDS = [
     ("parental", ["autorisation", "parentale"], 100),
 ]
 
-# ─── Fusion des process personnalisés ───
-for _pid, _pnom in _custom.get("qualify_options", {}).items():
-    QUALIFY_OPTIONS[_pid] = _pnom
-for _kw in _custom.get("keywords", []):
-    if len(_kw) == 3:
-        KEYWORDS.append(tuple(_kw))
-for _pid, _dec in _custom.get("simple_decisions", {}).items():
-    if isinstance(_dec, list) and len(_dec) == 2:
-        SIMPLE_DECISIONS[_pid] = tuple(_dec)
-for _pid, _role in _custom.get("roles", {}).items():
-    ROLE[_pid] = _role
+# ─── Fusion des process personnalisés (exécutée après SIMPLE_DECISIONS) ───
+def _fuse_custom():
+    for _pid, _pnom in _custom.get("qualify_options", {}).items():
+        QUALIFY_OPTIONS[_pid] = _pnom
+    for _kw in _custom.get("keywords", []):
+        if len(_kw) == 3:
+            KEYWORDS.append(tuple(_kw))
+    for _pid, _dec in _custom.get("simple_decisions", {}).items():
+        if isinstance(_dec, list) and len(_dec) == 2:
+            SIMPLE_DECISIONS[_pid] = tuple(_dec)
+    for _pid, _role in _custom.get("roles", {}).items():
+        ROLE[_pid] = _role
 
 def norm(s: str) -> str:
     repl = {"é":"e","è":"e","ê":"e","à":"a","ù":"u","ç":"c","ô":"o","î":"i","ï":"i","É":"e","À":"a"}
@@ -361,6 +362,9 @@ ROLE = {
     "agent_reject_id":"BO_ONLY", "deblocage_compte":"BO_ONLY", "identification":"BO_ONLY", "move_balance":"BO_ONLY", "parental":"BO_ONLY", "refund":"BO_ONLY",
     "agent_gaming":"FO", "agent_reject_id_fo":"FO", "canal":"FO", "cie_sodeci":"FO", "cie_prepayee":"FO", "startimes":"FO", "fer":"FO", "cnps":"FO", "cit":"FO",
 }
+
+# Fusion des personnalisations une fois SIMPLE_DECISIONS et ROLE définis
+_fuse_custom()
 
 def role_for(intent):
     return ROLE.get(intent, "FO_BO")
