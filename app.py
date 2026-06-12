@@ -40,11 +40,16 @@ section[data-testid="stSidebar"] {{background: linear-gradient(180deg,#4CC3E6 0%
 section[data-testid="stSidebar"] * {{color:{DARK} !important; font-weight:600;}}
 .block-container {{padding-top:2.2rem; max-width:1180px;}}
 .wave-card {{background:white; border:1px solid #CDEFF8; border-radius:24px; padding:28px 30px; box-shadow:0 14px 35px rgba(38,189,226,.10); margin:18px 0;}}
-.process-card {{background:#E9F9FD; border-left:7px solid #0BB4D8; border-radius:22px; padding:24px 28px; margin:18px 0; box-shadow:0 12px 28px rgba(38,189,226,.12);}}
-.question-card {{background:#E9F9FD; border-left:7px solid #0A9FC3; border-radius:20px; padding:22px 26px; margin:16px 0;}}
-.decision-ok {{background:#E8F8EF; border-left:7px solid {GREEN}; border-radius:20px; padding:22px 26px; margin:18px 0;}}
-.decision-stop {{background:#FFF2F2; border-left:7px solid {RED}; border-radius:20px; padding:22px 26px; margin:18px 0;}}
-.decision-warn {{background:#FFF7E6; border-left:7px solid {ORANGE}; border-radius:20px; padding:22px 26px; margin:18px 0;}}
+.process-card {{background:#E9F9FD; border-left:7px solid #0BB4D8; border-radius:22px; padding:24px 28px; margin:18px 0; box-shadow:0 12px 28px rgba(38,189,226,.12); color:#102033 !important;}}
+.process-card * {{color:#102033 !important;}}
+.question-card {{background:#E9F9FD; border-left:7px solid #0A9FC3; border-radius:20px; padding:22px 26px; margin:16px 0; color:#102033 !important;}}
+.question-card * {{color:#102033 !important;}}
+.decision-ok {{background:#E8F8EF; border-left:7px solid {GREEN}; border-radius:20px; padding:22px 26px; margin:18px 0; color:#102033 !important;}}
+.decision-ok * {{color:#102033 !important;}}
+.decision-stop {{background:#FFF2F2; border-left:7px solid {RED}; border-radius:20px; padding:22px 26px; margin:18px 0; color:#102033 !important;}}
+.decision-stop * {{color:#102033 !important;}}
+.decision-warn {{background:#FFF7E6; border-left:7px solid {ORANGE}; border-radius:20px; padding:22px 26px; margin:18px 0; color:#102033 !important;}}
+.decision-warn * {{color:#102033 !important;}}
 .badge {{display:inline-block; padding:7px 12px; border-radius:999px; margin-right:8px; background:#D7F6FD; font-weight:800; color:#075F78;}}
 .badge-orange {{background:#FFE8C7; color:#9A4E00;}}
 .small-muted {{color:#667085; font-size:.95rem;}}
