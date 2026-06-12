@@ -675,58 +675,301 @@ def render_assistant(profile):
 # ------------------------------ Training bank ------------------------------
 
 BANK = [
+    # ══ FRONT OFFICE ══
+
     # ── Canal+ ──
-    {"role":"FO","theme":"Canal+","case":"Un client a payé Canal+ et n’a pas les images. Le numéro de réabonnement sur Front est correct. La date de fin d’abonnement est dans 10 jours ouvrés.","q":"Quelle conduite tenir ?","opts":["Orienter vers Canal+ au 1313","Report Bill Payment Problem","Faire Merchant Issue","Transférer BO"],"a":1,"exp":"Numéro correct + pas d’images + délai ≥ 7 jours ouvrés restants = Report Bill Payment Problem. Canal+ a le temps de traiter."},
-    {"role":"FO","theme":"Canal+","case":"Un client a payé Canal+ et n’a pas les images. Le numéro est correct sur Front. La date de fin d’abonnement est dans 3 jours seulement.","q":"Quelle action ?","opts":["Report Bill Payment Problem","Orienter vers Canal+ au 1313 — délai insuffisant pour un ticket","Faire Merchant Issue","Transférer BO"],"a":1,"exp":"Numéro correct + pas d’images + délai < 7 jours ouvrés = orienter directement Canal+ 1313. Le ticket n’aurait pas le temps d’être traité."},
-    {"role":"FO","theme":"Canal+","case":"Un client vient tout juste de payer Canal+ (il y a 2 heures) et n’a pas encore les images. Le numéro est correct.","q":"Que faire ?","opts":["Report Bill Payment Problem immédiatement","Inviter le client à patienter — Canal+ traite dans un délai pouvant aller jusqu’à 24h","Orienter Canal+ 1313 immédiatement","Merchant Issue"],"a":1,"exp":"Paiement très récent : inviter à patienter avant toute action. Vérifier d’abord la date de commencement d’abonnement et le délai restant."},
-    {"role":"FO","theme":"Canal+","case":"Un client s’est trompé de numéro Canal+. La date de fin d’abonnement actuelle laisse au moins 7 jours ouvrés.","q":"Quelle action ?","opts":["Report Bill Payment Problem avec le bon numéro","Rembourser","Orienter uniquement 1313","Merchant Issue"],"a":0,"exp":"Erreur numéro + délai ≥ 7 jours ouvrés = Report Bill Payment Problem avec le numéro correct. Délai traitement ~1 semaine ouvrée."},
-    {"role":"FO","theme":"Canal+","case":"Un client s’est trompé de numéro Canal+. L’abonnement se termine dans 4 jours.","q":"Que faire ?","opts":["Report Bill Payment Problem","Orienter vers Canal+ au 1313 — pas assez de délai","Rembourser","Transférer BO"],"a":1,"exp":"Erreur numéro + délai < 7 jours ouvrés = orienter Canal+ 1313. Le Bill Payment Problem n’aurait pas le temps d’être traité."},
-    {"role":"FO","theme":"Canal+","case":"Le client a payé pour une offre Canal+ inférieure à l’abonnement souhaité et veut modifier.","q":"Action ?","opts":["Modifier l’offre directement","Expliquer que l’offre inférieure n’est pas modifiable, orienter Canal+ 1313","Rembourser","Report Bill Payment Problem"],"a":1,"exp":"Canal+ : une offre inférieure souscrite ne peut pas être modifiée par Wave ; orienter vers Canal+ 1313."},
-    {"role":"FO","theme":"Canal+","case":"Le client a rechargé deux fois Canal+ par erreur. Il voit deux dates d’abonnement différentes.","q":"Que dire au client ?","opts":["Rembourser le double paiement","Expliquer que les deux recharges s’ajoutent (dates différentes), non annulable","Annuler la seconde","Merchant Issue"],"a":1,"exp":"Double recharge Canal+ : les dates s’additionnent, ce n’est pas une erreur ; l’option n’est pas annulable."},
-    # ── Facturiers ──
-    {"role":"FO","theme":"CIE/SODECI","case":"Un client CIE postpayé dit que le montant figure encore sur sa facture après paiement Wave.","q":"Que faire ?","opts":["Escalader Partner Ops","Communiquer référence/ID transaction et orienter CIE 179/agence","Rembourser","Faire Merchant Issue"],"a":1,"exp":"CIE/SODECI : pas d’escalade Partner Ops ; les infos du reçu servent à l’agence/service client."},
-    {"role":"FO","theme":"CIE prépayée","case":"Un client n’a pas reçu son code CIE prépayé, mais le code est visible sur Front.","q":"Action correcte ?","opts":["Communiquer/envoyer le code via Bill Pay Code","Faire Bill Pay Problem","Rembourser","Orienter directement agence sans donner le code"],"a":0,"exp":"Si code visible, le communiquer ou l’envoyer par SMS via Bill Pay Code."},
-    {"role":"FO","theme":"Startimes","case":"Un client Startimes a une erreur de numéro réabonné.","q":"Que faire ?","opts":["Report Bill Payment Problem, 72h jours ouvrés","Aucun recours","Refund","Canal 1313"],"a":0,"exp":"Startimes : si erreur, Report Bill Payment Problem, délai 72h jours ouvrés."},
-    {"role":"FO","theme":"FER","case":"Un client a saisi un mauvais numéro de badge FER.","q":"Conduite ?","opts":["Rembourser","Transférer sur autre carte","Aucun remboursement/transfert possible","Merchant Issue"],"a":2,"exp":"FER : aucun remboursement ni transfert en cas d’erreur de carte."},
-    {"role":"FO","theme":"CNPS","case":"Un client a payé un montant CNPS supérieur à ce qu’il devait.","q":"Que faire ?","opts":["Annuler le paiement Wave","Rembourser la différence","Inviter le client à voir la CNPS ; Wave ne peut pas annuler","Report B2W Problem"],"a":2,"exp":"CNPS : si paiement supérieur, pas d’annulation possible sur Wave ; le client doit contacter la CNPS."},
-    {"role":"FO","theme":"CIT","case":"Un client veut un remboursement après un paiement CIT erroné.","q":"Action ?","opts":["Faire le remboursement Wave","Aucun remboursement ; client va au bureau CIT","Report Bill Payment Problem","Escalader Partner Ops"],"a":1,"exp":"CIT : aucun remboursement Wave ; le client doit se rendre au bureau CIT."},
+    {"role":"FO","theme":"Canal+",
+     "case":"Mme Diallo a payé Canal+ hier. Elle n’a toujours pas les images ce matin. Sur Front, le numéro de réabonnement correspond exactement à celui qu’elle a fourni. La date de fin d’abonnement est dans 12 jours ouvrés.",
+     "q":"Quelle action entreprendre ?",
+     "opts":["Orienter vers Canal+ au 1313 sans rien créer","Créer un Report Bill Payment Problem — délai suffisant pour traitement","Faire un Merchant Issue","Transférer au BO"],"a":1,
+     "exp":"Numéro correct + pas d’images + 12 jours restants (≥ 7 jours ouvrés) = Report Bill Payment Problem. Canal+ dispose du temps nécessaire pour traiter."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"M. Kouamé a payé Canal+ il y a 3 jours. Pas d’images. Le numéro est correct sur Front. L’abonnement se termine dans 4 jours ouvrés.",
+     "q":"Quelle est la bonne action ?",
+     "opts":["Report Bill Payment Problem — le délai est encore acceptable","Orienter directement vers Canal+ au 1313 — délai insuffisant pour un ticket","Faire Merchant Issue","Rembourser et recréer un paiement"],"a":1,
+     "exp":"Numéro correct + pas d’images + seulement 4 jours restants (< 7 jours ouvrés) = orienter Canal+ 1313 directement. Un Bill Payment Problem ne serait pas traité à temps."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Un client vient de payer Canal+ il y a 30 minutes. Il appelle car il n’a pas encore les images. Le numéro affiché sur Front correspond à ce qu’il a fourni.",
+     "q":"Que faire ?",
+     "opts":["Créer immédiatement un Report Bill Payment Problem","Inviter le client à patienter — le traitement Canal+ prend quelques heures ; vérifier la date de fin pour décider de la suite si ça persiste","Orienter Canal+ 1313 sans attendre","Transférer BO"],"a":1,
+     "exp":"Paiement très récent (30 min) : inviter à patienter. Aucune action prématurée. Si le problème persiste, vérifier la date de fin d’abonnement pour choisir entre Report Bill Pay Problem ou Canal+ 1313."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Un client a payé Canal+ mais a saisi le mauvais numéro de décodeur. Le bon numéro est disponible. L’abonnement actuel se termine dans 9 jours ouvrés.",
+     "q":"Action correcte ?",
+     "opts":["Orienter vers Canal+ 1313 uniquement","Créer un Report Bill Payment Problem avec le numéro correct — délai suffisant","Rembourser et demander au client de repayer","Merchant Issue"],"a":1,
+     "exp":"Erreur de numéro + 9 jours restants (≥ 7 jours ouvrés) = Report Bill Payment Problem avec le bon numéro. Délai de traitement environ 1 semaine ouvrée."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Un client a payé Canal+ avec le mauvais numéro. L’abonnement actuel expire dans 5 jours.",
+     "q":"Que faire ?",
+     "opts":["Report Bill Payment Problem avec le bon numéro","Orienter vers Canal+ au 1313 — le délai est insuffisant pour traiter un ticket","Rembourser directement","Merchant Issue"],"a":1,
+     "exp":"Erreur numéro + 5 jours restants (< 7 jours ouvrés) = orienter Canal+ 1313. Le ticket ne serait pas traité avant la fin d’abonnement."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Un client a payé une offre Canal+ Evasion (inférieure à ce qu’il voulait). Il souhaitait Canal+ Total. Il demande à changer l’offre ou être remboursé.",
+     "q":"Quelle réponse donner ?",
+     "opts":["Modifier l’offre directement sur Front","Expliquer qu’une offre inférieure déjà souscrite n’est pas modifiable par Wave ; orienter vers Canal+ 1313","Rembourser et recréer le paiement","Report Bill Payment Problem"],"a":1,
+     "exp":"Offre Canal+ inférieure déjà activée : Wave ne peut pas la modifier. Orienter le client vers Canal+ au 1313 pour une éventuelle solution de leur côté."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Un client a rechargé Canal+ deux fois par erreur ce mois-ci. Il voit deux dates d’abonnement distinctes sur Front et réclame un remboursement du deuxième paiement.",
+     "q":"Que lui expliquer ?",
+     "opts":["Créer le remboursement du second paiement","Expliquer que les deux recharges s’ajoutent (dates différentes) et que c’est non annulable — aucun remboursement possible","Annuler uniquement la seconde recharge","Merchant Issue"],"a":1,
+     "exp":"Double recharge Canal+ : les abonnements s’accumulent (dates différentes). Ce n’est pas une erreur corrigeable par Wave. Expliquer avec empathie : non annulable, non remboursable."},
+
+    # ── CIE / SODECI / Facturiers ──
+    {"role":"FO","theme":"CIE/SODECI",
+     "case":"Un client CIE postpayé a payé sa facture via Wave. Le montant apparaît toujours comme impayé sur sa facture CIE. Il a son reçu Wave avec l’ID de transaction.",
+     "q":"Que faire ?",
+     "opts":["Escalader à Partner Ops","Communiquer la référence et l’ID de transaction, orienter le client vers CIE 179 ou son agence CIE","Rembourser et demander au client de repayer","Faire Merchant Issue"],"a":1,
+     "exp":"CIE/SODECI postpayé : pas d’escalade Partner Ops. Communiquer les références du reçu. Orienter vers CIE 179 ou l’agence d’origine."},
+
+    {"role":"FO","theme":"CIE prépayée",
+     "case":"Un client a payé son compteur CIE prépayé via Wave et n’a pas reçu son code de recharge. En consultant Front, le code de recharge est visible dans les détails de la transaction.",
+     "q":"Action correcte ?",
+     "opts":["Lui demander d’attendre que CIE envoie le code","Communiquer le code directement ou l’envoyer par SMS via Bill Pay Code","Faire Report Bill Payment Problem","Escalader Partner Ops"],"a":1,
+     "exp":"Code CIE prépayé visible sur Front = le communiquer au client ou l’envoyer via Bill Pay Code. Pas d’escalade nécessaire."},
+
+    {"role":"FO","theme":"CIE prépayée",
+     "case":"Un client a payé son compteur CIE prépayé. Il n’a pas reçu son code. Sur Front, le champ code est vide — le code n’est pas visible.",
+     "q":"Action correcte ?",
+     "opts":["Dire au client que le code arrivera tout seul","Créer Report Bill Payment Problem, délai 72h jours ouvrés ; orienter CIE 179 en complément","Rembourser directement","Escalader Partner Ops"],"a":1,
+     "exp":"Code non visible sur Front = Report Bill Payment Problem, délai 72h jours ouvrés. Orienter également vers CIE 179 si le client a besoin du code rapidement."},
+
+    {"role":"FO","theme":"Startimes",
+     "case":"Un client a réabonné Startimes mais a saisi un numéro d’abonné erroné. Il s’en rend compte après le paiement.",
+     "q":"Que faire ?",
+     "opts":["Aucun recours possible — expliquer l’erreur et clore","Report Bill Payment Problem avec le bon numéro, délai 72h jours ouvrés","Orienter Startimes au 86060 sans rien créer","Rembourser Wave"],"a":1,
+     "exp":"Startimes + erreur numéro = Report Bill Payment Problem avec le numéro correct, délai 72h jours ouvrés."},
+
+    {"role":"FO","theme":"FER",
+     "case":"Un client a payé sa carte FER mensuelle mais a saisi un mauvais numéro de badge. Il demande un remboursement ou un transfert vers le bon numéro.",
+     "q":"Quelle est la réponse correcte ?",
+     "opts":["Rembourser le montant payé","Transférer le crédit vers le bon numéro de badge","Ni remboursement ni transfert possible — aucune action corrective FER sur Wave","Merchant Issue"],"a":2,
+     "exp":"FER : aucun remboursement ni transfert en cas d’erreur de numéro de badge. C’est définitif, expliquer au client."},
+
+    {"role":"FO","theme":"CNPS",
+     "case":"Un client a payé sa cotisation CNPS via Wave avec un montant supérieur à ce qu’il devait. Il demande à Wave de rembourser la différence.",
+     "q":"Que faire ?",
+     "opts":["Rembourser la différence directement","Annuler le paiement et le refaire au bon montant","Expliquer qu’aucune annulation n’est possible sur Wave ; orienter le client vers la CNPS directement","Report Bill Payment Problem"],"a":2,
+     "exp":"CNPS : Wave ne peut ni annuler ni rembourser. Le client doit contacter la CNPS directement pour régulariser le trop-payé."},
+
+    {"role":"FO","theme":"CIT",
+     "case":"Un client a effectué un paiement CIT (Côte d’Ivoire Terminal) par erreur et demande un remboursement à Wave.",
+     "q":"Action ?",
+     "opts":["Procéder au remboursement Wave","Créer Report Bill Payment Problem","Aucun remboursement Wave — orienter le client vers le bureau CIT","Merchant Issue"],"a":2,
+     "exp":"CIT : aucun remboursement possible via Wave. Le client doit se rendre physiquement au bureau CIT pour toute demande de remboursement ou correction."},
+
     # ── B2W ──
-    {"role":"FO","theme":"B2W","case":"Error details B2W indique : solde bancaire insuffisant.","q":"Que faire ?","opts":["Report B2W automatiquement","Orienter vers le gestionnaire bancaire","Recover PIN","Merchant Issue"],"a":1,"exp":"Raison bancaire claire = orienter vers la banque."},
-    {"role":"FO","theme":"B2W","case":"Un client a fait un B2W qui est resté ‘pending’. L’Error details ne montre pas de raison bancaire claire.","q":"Action ?","opts":["Orienter vers la banque","Report B2W Problem, délai 72h","Recover PIN","Ignorer"],"a":1,"exp":"Raison non claire = Report B2W Problem, délai max 72h."},
-    {"role":"FO","theme":"B2W","case":"Un client a changé de téléphone et son B2W est bloqué. Error details mentionne un problème de device linking.","q":"Que faire en FO ?","opts":["Traiter le B2W directement","Identifier, noter TR: device linking B2W, transférer BO","Report B2W Problem","Recover PIN"],"a":1,"exp":"Device linking B2W : FO identifie, note le motif, transfère BO qui suit le process device linking."},
+    {"role":"FO","theme":"B2W",
+     "case":"Un client a tenté un virement de sa banque vers Wave (B2W). La transaction a échoué. En consultant Error details sur Front, le message indique clairement : ‘solde bancaire insuffisant’.",
+     "q":"Quelle action prendre ?",
+     "opts":["Créer un Report B2W Problem","Orienter le client vers sa banque ou son gestionnaire bancaire — raison claire côté banque","Faire Recover PIN","Transférer BO"],"a":1,
+     "exp":"Error details B2W avec raison bancaire claire = orienter vers la banque. Wave n’a aucune action possible si le problème vient de la banque."},
+
+    {"role":"FO","theme":"B2W",
+     "case":"Un client a tenté un B2W resté en ‘pending’ depuis 2 jours. Error details sur Front ne montre aucune raison bancaire claire — juste un code d’erreur technique.",
+     "q":"Action ?",
+     "opts":["Orienter vers la banque — c’est forcément bancaire","Créer Report B2W Problem, délai max 72h jours ouvrés","Recover PIN","Ignorer, le pending se résoudra seul"],"a":1,
+     "exp":"B2W pending sans raison bancaire claire = Report B2W Problem. Délai de résolution max 72h jours ouvrés."},
+
+    {"role":"FO","theme":"B2W",
+     "case":"Un client a changé de téléphone il y a une semaine. Depuis, son B2W est en échec systématique. Error details mentionne un problème lié au device linking.",
+     "q":"Que faire en FO ?",
+     "opts":["Traiter le B2W directement en FO","Identifier le client, noter ‘TR: device linking B2W’ et transférer au BO pour suivi du process device linking","Report B2W Problem standard","Recover PIN"],"a":1,
+     "exp":"Device linking B2W : FO identifie, note explicitement le motif ‘TR: device linking B2W’ et transfère BO. Le BO applique ensuite le process device linking spécifique."},
+
     # ── Merchant ──
-    {"role":"FO","theme":"Merchant","case":"Un client réclame sur un paiement marchand. Le numéro service client du partenaire s’affiche.","q":"Action ?","opts":["Communiquer le numéro puis cliquer Fait","Ne jamais communiquer de numéro","Créer directement ticket","Rembourser"],"a":0,"exp":"Si numéro partenaire fourni, le communiquer et cliquer Fait."},
-    {"role":"FO","theme":"Merchant","case":"Un client a un problème de paiement marchand mais aucun numéro partenaire n’est affiché.","q":"Action ?","opts":["Rien à faire","Créer Merchant Issue avec tous les détails, délai 72h ouvrés","Rembourser directement","Orienter vers Canal+"],"a":1,"exp":"Pas de numéro partenaire = Merchant Issue avec détails, délai 72h jours ouvrés."},
+    {"role":"FO","theme":"Merchant",
+     "case":"Un client a un litige sur un paiement marchand. En consultant Front sous Merchant Issue, le numéro du service client du partenaire s’affiche automatiquement.",
+     "q":"Action correcte ?",
+     "opts":["Ne jamais communiquer de numéro de partenaire au client","Communiquer le numéro au client, puis cliquer sur ‘Fait’","Créer un ticket Merchant Issue en plus","Rembourser directement"],"a":1,
+     "exp":"Numéro partenaire affiché = le communiquer au client et cliquer ‘Fait’. Pas besoin de créer un ticket supplémentaire."},
+
+    {"role":"FO","theme":"Merchant",
+     "case":"Un client signale un problème sur un paiement marchand Wave. Sur Front, aucun numéro de partenaire n’est disponible dans les détails.",
+     "q":"Action ?",
+     "opts":["Dire au client qu’il n’y a rien à faire","Créer un Merchant Issue avec tous les détails (montant, marchand, date), délai 72h jours ouvrés","Rembourser directement","Orienter vers Canal+ 1313"],"a":1,
+     "exp":"Pas de numéro partenaire = Merchant Issue avec tous les détails. Délai de résolution : 72h jours ouvrés."},
+
     # ── Agent ──
-    {"role":"FO","theme":"Agent gaming","case":"Un agent signale gaming agent.","q":"Action FO ?","opts":["Traiter en FO","Transférer à la Fraude","Faire Recover PIN","Créer Bill Payment"],"a":1,"exp":"Gaming agent : FO transfère à la Fraude."},
-    {"role":"FO","theme":"PDV","case":"Un client cherche un point de vente proche.","q":"Faut-il qu’il appelle avec son numéro Wave ?","opts":["Oui obligatoire","Non, demander la zone et chercher le PDV","Seulement KYC2","Transférer BO"],"a":1,"exp":"Localiser PDV : pas nécessaire d’appeler du numéro lié au compte."},
-    {"role":"FO","theme":"Agent commission","case":"Un agent signale que ses commissions ont été coupées sans explication.","q":"Action ?","opts":["Rembourser","Escalader Escalate > Request Risk to Explain Commissions Cut avec la date","Faire Report B2W","Transférer FO"],"a":1,"exp":"Commission coupée : Escalate > Request Risk to Explain, avec la date de coupure."},
-    {"role":"FO","theme":"Agent lien app","case":"Un agent appelle car son application Wave agent ne fonctionne pas.","q":"Action ?","opts":["Lui demander de se rendre en agence","Vérifier agent principal/assistant, désinstaller et renvoyer le lien via Front > Agent > More > Send link","Faire Merchant Issue","Recover PIN"],"a":1,"exp":"Lien app agent : désinstallation + renvoi du lien via Front, depuis le numéro concerné."},
-    {"role":"FO","theme":"Agent prospect","case":"Un client veut devenir agent Wave.","q":"Que faire ?","opts":["Lui communiquer directement le statut","Donner les critères et envoyer le lien Request to be an agent via Front","Transférer Manager","Créer ticket BO"],"a":1,"exp":"Devenir agent : donner critères et lien Request to be an agent via Front."},
+    {"role":"FO","theme":"Agent gaming",
+     "case":"Un agent appelle pour une demande habituelle. En consultant son profil sur Front, vous constatez qu’il est marqué ‘Agent gaming’ dans le système.",
+     "q":"Quelle est l’action FO immédiate ?",
+     "opts":["Traiter sa demande normalement","Transférer immédiatement à l’équipe Fraude — aucune autre action en FO","Faire Recover PIN","Créer un Report Bill Payment Problem"],"a":1,
+     "exp":"Agent gaming détecté : FO transfère immédiatement à l’équipe Fraude. Aucune autre action n’est autorisée en FO pour ce cas."},
+
+    {"role":"FO","theme":"PDV",
+     "case":"Un client cherche un point de vente Wave proche de son quartier. Il n’a pas son téléphone Wave à portée — il appelle depuis un autre numéro.",
+     "q":"Que faire ?",
+     "opts":["Lui dire d’abord d’appeler depuis son numéro Wave","Demander son quartier, rechercher sur la plateforme CI et lui communiquer les PDV proches — aucune authentification requise","Transférer au BO","Refuser : doit appeler depuis son compte"],"a":1,
+     "exp":"Localiser PDV : aucune authentification du compte n’est requise. Demander simplement la zone, chercher sur la plateforme CI et communiquer les résultats."},
+
+    {"role":"FO","theme":"Agent commission",
+     "case":"Un agent principal appelle car ses commissions de la semaine dernière ont été coupées sans qu’il en ait reçu d’explication.",
+     "q":"Action ?",
+     "opts":["Rembourser les commissions","Escalader via ‘Request Risk to Explain Commissions Cut’ avec la date précise de la coupure","Faire Report B2W","Lui dire de contacter son responsable de zone directement"],"a":1,
+     "exp":"Commission coupée : escalader via ‘Request Risk to Explain Commissions Cut’ avec la date précise. L’équipe Risk expliquera le motif."},
+
+    {"role":"FO","theme":"Agent lien app",
+     "case":"Un agent assistant appelle car son application Wave agent refuse de se lancer depuis hier — elle se ferme à l’ouverture.",
+     "q":"Action ?",
+     "opts":["Lui demander de se rendre en agence physique","Vérifier s’il est principal ou assistant, lui demander de désinstaller l’app, puis renvoyer le lien via Front > Agent > More > Send link to agent app","Faire Merchant Issue","Recover PIN"],"a":1,
+     "exp":"App agent défaillante : désinstallation obligatoire puis renvoi du lien via Front > Agent > More > Send link. L’appel doit venir du numéro concerné (principal ou assistant)."},
+
+    {"role":"FO","theme":"Agent prospect",
+     "case":"Un client appelle et dit vouloir devenir agent Wave. Il veut savoir comment s’inscrire.",
+     "q":"Quelle est la démarche correcte ?",
+     "opts":["Lui créer le statut agent directement depuis Front","Lui expliquer les critères d’éligibilité et envoyer le lien ‘Request to be an agent’ via Front","Transférer au Manager","Créer un ticket BO pour traitement"],"a":1,
+     "exp":"Devenir agent : expliquer les critères et envoyer le lien ‘Request to be an agent’ via Front. Pas de création manuelle de statut."},
+
     # ── Carte Visa Wave ──
-    {"role":"FO","theme":"Carte Visa — Info","case":"Un client demande pourquoi il ne voit pas l’option Carte Visa dans son application Wave.","q":"Action ?","opts":["Lui créer la carte directement","Transférer à l’équipe Virtual Visa","Report B2W","Recover PIN"],"a":1,"exp":"Toute question sur la carte Visa (accès, activation, tarifs, CVV) : transférer à l’équipe Virtual Visa."},
-    {"role":"FO","theme":"Carte Visa — Fraude","case":"Un client signale plusieurs paiements inconnus sur sa carte Visa Wave et craint une fraude.","q":"Quelle est la priorité absolue ?","opts":["Ouvrir un litige directement","Guider le client pour bloquer la carte dans l’app, puis transférer l’équipe Virtual Visa","Faire Report B2W","Recover PIN"],"a":1,"exp":"Fraude carte Visa : bloquer la carte immédiatement (app Wave > Carte > Bloquer) puis transférer Virtual Visa avec les détails."},
-    {"role":"FO","theme":"Carte Visa — Paiement refusé","case":"Le client dit que sa carte Visa Wave est suffisamment approvisionnée, mais son paiement en ligne est refusé.","q":"Action ?","opts":["Rembourser","Vérifier le solde puis transférer Virtual Visa avec les détails du site et du message d’erreur","Faire Merchant Issue","Recover PIN"],"a":1,"exp":"Paiement refusé carte Visa : vérifier solde, puis transférer Virtual Visa avec nom du site, type de paiement et message d’erreur."},
-    {"role":"FO","theme":"Carte Visa — Litige","case":"Le client a été débité deux fois pour le même achat avec sa carte Visa Wave.","q":"Action ?","opts":["Procéder directement au remboursement","Recueillir date/montant/marchand et transférer Virtual Visa pour ouverture de litige","Faire Report B2W","Ignorer"],"a":1,"exp":"Litige double débit carte Visa : collecter les informations (date, montant, marchand) et transférer Virtual Visa."},
-    {"role":"FO","theme":"Carte Visa — Remboursement","case":"Le client demande un remboursement pour une commande payée avec sa carte Visa Wave mais jamais reçue.","q":"Action ?","opts":["Rembourser directement","Transférer Virtual Visa avec date, montant, marchand et motif du remboursement","Report B2W Problem","Merchant Issue"],"a":1,"exp":"Remboursement carte Visa : transférer Virtual Visa avec tous les détails. Le délai est communiqué par leur équipe."},
-    # ── BO spécifiques ──
-    {"role":"BO","theme":"Déblocage compte","case":"Compte bloqué dimanche pour téléphone perdu. Le client rappelle le même dimanche.","q":"Décision ?","opts":["Débloquer après AB","Ne pas débloquer le même jour","Recover PIN uniquement","Rejet pièce"],"a":1,"exp":"Dimanche même jour = déblocage non autorisé ; possible à partir du lendemain."},
-    {"role":"BO","theme":"Déblocage compte","case":"Compte bloqué samedi après 13h. Le client rappelle dimanche.","q":"Décision ?","opts":["Débloquer après AB","Ne pas débloquer, rappeler lundi","Report B2W","Rejeter pièce"],"a":1,"exp":"Cas spécial : samedi après 13h + dimanche = rappeler lundi."},
-    {"role":"BO","theme":"Déblocage compte","case":"Compte bloqué hier pour fraude. Le client appelle aujourd’hui et veut débloquer.","q":"Action BO ?","opts":["Débloquer directement","Créer ticket déblocage compte, ne pas débloquer directement","Faire Recover PIN","Rejeter la pièce"],"a":1,"exp":"Blocage Fraude : ne jamais débloquer directement ; créer ticket déblocage compte."},
-    {"role":"BO","theme":"Double identité","case":"Client veut une action mais Front montre deux noms. L’appelant est le nom du bas et reconnaît avoir utilisé la pièce d’un tiers. Blocage non Fraude.","q":"Priorité ?","opts":["Exécuter l’action principale directement","Traiter d’abord l’identité/rejet pièce si sécurité validée","Créer ticket Fraude automatiquement","Refuser définitivement"],"a":1,"exp":"Double identité non Fraude : régler l’identité avant l’action principale."},
-    {"role":"BO","theme":"Double identité + Fraude","case":"Compte avec double identité mais le blocage est Fraude.","q":"Action ?","opts":["Rejeter la pièce","Créer ticket déblocage compte, pas rejet ID","Débloquer direct","Move balance"],"a":1,"exp":"Blocage Fraude : pas de rejet de pièce ; ticket déblocage compte."},
-    {"role":"BO","theme":"Rejet pièce agent","case":"Un agent demande le rejet de la pièce présente sur son compte agent.","q":"Process ?","opts":["Recover PIN","Demande #ci-compliance avec ID agent et motif","Canal+","Refund"],"a":1,"exp":"Rejet pièce agent : #ci-compliance, tag personnes prévues, délai annoncé 30 min."},
-    {"role":"BO","theme":"Refund","case":"Un client demande plusieurs refunds.","q":"Action BO ?","opts":["Procéder aux remboursements","Toujours refuser","Merchant Issue","CIE 179"],"a":0,"exp":"BO peut procéder aux remboursements. Si contestation destinataire : report refunding dispute."},
-    {"role":"BO","theme":"Refund dispute","case":"Le destinataire appelle pour contester un refund effectué.","q":"Action ?","opts":["Annuler le refund","Créer report refunding dispute et annoncer 48h jours ouvrés","Canal 1313","Rejeter pièce"],"a":1,"exp":"Contestations de refund : ticket report refunding dispute, 48h jours ouvrés."},
-    {"role":"BO","theme":"Move balance","case":"Client sans smartphone veut transférer l’argent de son coffre vers solde principal.","q":"Condition clé ?","opts":["2 réponses sécurité","4 bonnes réponses + move balance total","Montant partiel autorisé","Aucun contrôle"],"a":1,"exp":"Move balance coffre : 4 bonnes réponses, transfert total uniquement."},
-    {"role":"BO","theme":"Move balance","case":"Le client veut faire un move balance partiel (il ne veut pas transférer tout le coffre).","q":"Action ?","opts":["Autoriser le montant partiel","Expliquer que le move balance est total uniquement ; demander confirmation du total","Transférer FO","Rembourser"],"a":1,"exp":"Move balance : transfert du montant TOTAL uniquement. Partiel non autorisé."},
-    {"role":"BO","theme":"Autorisation parentale","case":"Mineur KYC2 ne peut pas obtenir l’approbation parentale et accepte le rejet de pièce.","q":"Que faire ?","opts":["Fermer compte","Identifier complètement + type pièce puis rejeter ID","Débloquer dépôts","B2W"],"a":1,"exp":"Mineur sans approbation et accepte : identification complète + type pièce, rejet ID pour revenir KYC1."},
-    {"role":"BO","theme":"Identification","case":"Client KYC2 dit avoir utilisé la pièce d’un proche. Il réussit les questions sécurité obligatoires.","q":"Action ?","opts":["Rejeter la pièce et inviter à refaire l’identification avec sa pièce","Débloquer sans action","Transférer FO","Refuser définitivement"],"a":0,"exp":"BO identification : si sécurité réussie, rejeter pièce du tiers et inviter à utiliser sa propre pièce."},
-    {"role":"BO","theme":"Identification","case":"L’appelant n’est pas le titulaire du compte. Il demande une action au nom du vrai propriétaire.","q":"Action ?","opts":["Faire l’action demandée si le motif est valable","Ne pas rejeter la pièce ; inviter le vrai titulaire à rappeler","Débloquer directement","Créer un ticket Fraude"],"a":1,"exp":"Identification titulaire : si l’appelant n’est pas le propriétaire, ne pas rejeter la pièce, inviter le vrai titulaire à rappeler."},
-    {"role":"BO","theme":"Device restriction","case":"Le client appelle car son compte est en device restriction après changement de téléphone.","q":"Étape clé ?","opts":["Débloquer sans vérification","Identifier, vérifier AB Verification, puis lever la restriction si réussie","Faire Report B2W","Transférer FO direct"],"a":1,"exp":"Device restriction : appel du numéro concerné obligatoire, identification + AB Verification, puis lever si réussite."},
-    {"role":"BO","theme":"Refund B2P","case":"Un marchand appelle pour demander un Refund B2P à un client.","q":"Condition ?","opts":["Le marchand peut appeler de n’importe quel numéro","Le marchand doit appeler avec le numéro qui a effectué la transaction","Aucune vérification nécessaire","Faire Merchant Issue"],"a":1,"exp":"Refund B2P : le marchand doit obligatoirement appeler avec le numéro de la transaction."},
-    {"role":"BO","theme":"Agent assistant","case":"Un agent principal veut ajouter un assistant à son compte agent.","q":"Qui fait la demande et comment ?","opts":["N’importe quel agent peut demander","Seul l’agent principal appelle depuis son numéro agent ; demande dans ci-agent-management au TL","Faire Merchant Issue","Transférer FO"],"a":1,"exp":"Ajouter/retirer assistant : uniquement l’agent principal, depuis son numéro agent, via ci-agent-management au TL."},
-    {"role":"BO","theme":"Rééquilibrage banque","case":"Un agent a soumis un bordereau de rééquilibrage via app il y a 4h mais les fonds ne sont pas arrivés.","q":"Action ?","opts":["Attendre encore","Demande dans ci-liquidity avec montant/agent/banque/date","Report B2W","Transférer FO"],"a":1,"exp":"Rééquilibrage par banque : bordereau soumis + 3h sans UV → demande dans ci-liquidity avec template complet."},
+    {"role":"FO","theme":"Carte Visa — Info",
+     "case":"Un client appelle car il ne trouve pas l’option ‘Carte Visa’ dans son application Wave. Il ne sait pas s’il est éligible ni comment l’activer.",
+     "q":"Action FO ?",
+     "opts":["Activer la carte directement depuis Front","Transférer à l’équipe Virtual Visa — toute question sur la carte Visa leur appartient","Report B2W Problem","Recover PIN"],"a":1,
+     "exp":"Toutes les demandes sur la carte Visa Wave (accès, activation, éligibilité, tarifs, CVV) : transférer à l’équipe Virtual Visa."},
+
+    {"role":"FO","theme":"Carte Visa — Fraude",
+     "case":"Un client signale 3 paiements inconnus effectués avec sa carte Visa Wave depuis ce matin. Il n’est pas à l’origine de ces transactions et craint une utilisation frauduleuse.",
+     "q":"Quelle est la priorité absolue avant toute autre action ?",
+     "opts":["Ouvrir directement un litige","Guider le client pour bloquer immédiatement sa carte depuis l’app Wave (Carte > Mes cartes > Bloquer), puis transférer l’équipe Virtual Visa avec les détails","Faire Report B2W","Recover PIN"],"a":1,
+     "exp":"Fraude carte Visa : bloquer la carte EN PREMIER via l’app Wave. Ensuite transférer Virtual Visa avec dates, montants et marchands des transactions suspectes."},
+
+    {"role":"FO","theme":"Carte Visa — Paiement refusé",
+     "case":"Un client appelle car son paiement sur un site de e-commerce international est systématiquement refusé, alors que sa carte Visa Wave affiche un solde suffisant.",
+     "q":"Action ?",
+     "opts":["Rembourser le client","Vérifier le solde disponible sur la carte, puis transférer Virtual Visa avec : nom du site, type de paiement, message d’erreur affiché","Faire Merchant Issue","Recover PIN"],"a":1,
+     "exp":"Paiement refusé carte Visa : vérifier le solde, puis transférer Virtual Visa avec tous les détails (site, type de paiement, message d’erreur). L’équipe Virtual Visa analysera la restriction."},
+
+    {"role":"FO","theme":"Carte Visa — Litige",
+     "case":"Un client constate qu’il a été débité deux fois pour le même achat effectué hier avec sa carte Visa Wave. Le marchand confirme n’avoir encaissé qu’une seule fois.",
+     "q":"Action ?",
+     "opts":["Procéder directement au remboursement du double débit","Recueillir date, montant, nom du marchand et transférer Virtual Visa pour ouverture de litige","Faire Report B2W Problem","Ignorer — les doublons se régulent automatiquement"],"a":1,
+     "exp":"Double débit carte Visa : collecter date, montant, marchand et transférer Virtual Visa pour ouverture de litige. Ne pas rembourser directement — c’est le rôle de l’équipe Virtual Visa."},
+
+    {"role":"FO","theme":"Carte Visa — Remboursement",
+     "case":"Un client a payé une commande en ligne avec sa carte Visa Wave il y a 2 semaines. La commande n’est jamais arrivée. Le marchand refuse de le rembourser.",
+     "q":"Action ?",
+     "opts":["Rembourser directement sur le compte Wave","Transférer Virtual Visa avec date de paiement, montant, nom du marchand et motif (article non reçu, marchand non coopératif)","Report B2W Problem","Merchant Issue"],"a":1,
+     "exp":"Remboursement carte Visa : transférer Virtual Visa avec tous les détails. Le délai de traitement est communiqué par l’équipe Virtual Visa."},
+
+    # ══ BACK OFFICE ══
+
+    # ── Déblocage compte ──
+    {"role":"BO","theme":"Déblocage compte",
+     "case":"Mme Koné a bloqué son compte Wave dimanche matin pour téléphone perdu. Elle rappelle le dimanche après-midi du même jour. Elle a sa pièce d’identité et réussit toutes les vérifications sécurité.",
+     "q":"Décision BO ?",
+     "opts":["Débloquer : elle a réussi les vérifications et c’est le même jour","Ne pas débloquer le même dimanche ; lui demander de rappeler à partir du lundi","Faire uniquement un Recover PIN","Rejeter la pièce d’identité"],"a":1,
+     "exp":"Règle absolue : un compte bloqué un dimanche ne peut pas être débloqué le même jour, même si toutes les vérifications sont réussies. Rappeler à partir du lundi."},
+
+    {"role":"BO","theme":"Déblocage compte",
+     "case":"M. Bamba a bloqué son compte samedi à 15h00 pour téléphone volé. Il rappelle le dimanche avec sa pièce d’identité valide et réussit l’AB Verification.",
+     "q":"Décision BO ?",
+     "opts":["Débloquer : c’est le lendemain du blocage et les vérifications sont réussies","Ne pas débloquer — blocage samedi après 13h + rappel dimanche = demander de rappeler lundi","Report B2W","Créer ticket Fraude"],"a":1,
+     "exp":"Cas spécial : blocage samedi après 13h + rappel dimanche = NE PAS débloquer. Demander de rappeler lundi. Ce cas précis ne permet pas le déblocage le dimanche."},
+
+    {"role":"BO","theme":"Déblocage compte",
+     "case":"Front affiche un blocage de type ‘Fraude’ sur le compte d’un client. Le client appelle le BO et réclame un déblocage immédiat en disant qu’il n’est pas concerné par une fraude.",
+     "q":"Action BO ?",
+     "opts":["Débloquer après identification et AB Verification si tout est OK","Créer le ticket déblocage compte via le process Fraude ; ne jamais débloquer directement un blocage Fraude","Faire Recover PIN uniquement","Rejeter la pièce d’identité"],"a":1,
+     "exp":"Blocage Fraude : JAMAIS de déblocage direct, même si le client est convainquant. Créer le ticket déblocage compte via le process prévu. L’équipe compétente valide ensuite."},
+
+    # ── Double identité ──
+    {"role":"BO","theme":"Double identité",
+     "case":"Un client appelle pour débloquer son compte. Sur Front, deux noms apparaissent : ‘M. Traoré’ (nom du haut) et ‘M. Bah’ (nom du bas). L’appelant se présente comme M. Bah et reconnaît avoir utilisé la CNI de son frère lors de l’inscription. Le blocage n’est pas lié à une Fraude.",
+     "q":"Quelle est la priorité avant d’exécuter le déblocage ?",
+     "opts":["Exécuter le déblocage directement — le client a fourni ses infos","Traiter d’abord la double identité : rejeter la pièce du tiers si les questions sécurité sont réussies, puis exécuter l’action","Créer un ticket Fraude automatiquement","Refuser définitivement toute action sur ce compte"],"a":1,
+     "exp":"Double identité non Fraude : toujours résoudre la question d’identité en premier (rejet pièce tiers si sécurité OK), puis exécuter l’action principale."},
+
+    {"role":"BO","theme":"Double identité + Fraude",
+     "case":"Front affiche deux noms sur un compte avec un blocage de type Fraude. L’appelant demande à ce qu’on lui rejette la pièce d’identité du tiers pour régulariser son compte.",
+     "q":"Action BO ?",
+     "opts":["Procéder au rejet de pièce comme demandé","Créer le ticket déblocage compte via process Fraude — pas de rejet de pièce sur un blocage Fraude","Débloquer directement","Move balance vers un autre compte"],"a":1,
+     "exp":"Double identité + blocage Fraude : le rejet de pièce est interdit. Créer le ticket déblocage compte via process Fraude. L’équipe compétente traitera ensuite."},
+
+    # ── Identification ──
+    {"role":"BO","theme":"Identification",
+     "case":"M. Soro appelle et dit s’être inscrit sur Wave avec la CNI de sa femme. Il réussit les 4 questions sécurité obligatoires. Il demande une action sur le compte.",
+     "q":"Action BO ?",
+     "opts":["Exécuter l’action demandée — il a réussi les questions sécurité","Rejeter la pièce de la femme et inviter M. Soro à refaire l’identification avec sa propre CNI","Transférer FO","Fermer le compte définitivement"],"a":1,
+     "exp":"Identification : sécurité réussie = rejeter la pièce du tiers et inviter à utiliser sa propre pièce d’identité. On ne peut pas exécuter l’action principale sans avoir régularisé l’identité."},
+
+    {"role":"BO","theme":"Identification",
+     "case":"Une femme appelle en disant gérer le compte Wave de son mari (qui est à l’étranger). Elle veut effectuer une action sur le compte. Elle ne peut pas passer les questions sécurité au nom du mari.",
+     "q":"Action BO ?",
+     "opts":["Effectuer l’action — le mari lui a donné l’autorisation","Ne pas rejeter la pièce ; inviter le titulaire réel du compte à rappeler lui-même","Créer un ticket Fraude","Débloquer directement"],"a":1,
+     "exp":"Titulaire absent : si l’appelant n’est pas le propriétaire du compte, ne pas rejeter la pièce. Inviter le vrai titulaire à rappeler directement."},
+
+    # ── Rejet pièce agent ──
+    {"role":"BO","theme":"Rejet pièce agent",
+     "case":"Un agent appelle le BO car la pièce d’identité enregistrée sur son compte agent n’est plus valide. Il veut qu’on la rejette pour pouvoir en enregistrer une nouvelle.",
+     "q":"Process BO ?",
+     "opts":["Rejeter la pièce directement depuis Front","Faire la demande dans #ci-compliance avec l’ID agent et le motif — délai 30 min","Faire Recover PIN","Canal+ 1313"],"a":1,
+     "exp":"Rejet pièce agent : demande dans #ci-compliance avec ID agent et motif. Tagger les personnes prévues. Délai annoncé : 30 minutes."},
+
+    # ── Refund ──
+    {"role":"BO","theme":"Refund",
+     "case":"Un client appelle le BO. Il a envoyé de l’argent par erreur à 3 personnes différentes lors de 3 transactions distinctes la semaine dernière. Il demande le remboursement des 3 transactions.",
+     "q":"Action BO ?",
+     "opts":["Refuser : maximum 1 refund à la fois","Procéder aux 3 remboursements — le BO peut traiter plusieurs refunds","Merchant Issue","Orienter vers FO"],"a":1,
+     "exp":"Plusieurs refunds : le BO peut procéder à plusieurs remboursements. Si un destinataire conteste ensuite, créer un report refunding dispute."},
+
+    {"role":"BO","theme":"Refund dispute",
+     "case":"Le destinataire d’un virement erroné, qui avait été remboursé par le BO il y a 3 jours, appelle maintenant pour dire qu’il n’a jamais demandé ce refund et conteste l’opération.",
+     "q":"Action BO ?",
+     "opts":["Annuler le refund effectué","Créer un report refunding dispute et annoncer un délai de 48h jours ouvrés","Orienter Canal+ 1313","Rejeter la pièce d’identité"],"a":1,
+     "exp":"Contestation de refund par le destinataire : créer report refunding dispute, délai de traitement 48h jours ouvrés."},
+
+    # ── Move balance ──
+    {"role":"BO","theme":"Move balance",
+     "case":"Un client n’utilise plus de smartphone depuis 6 mois. Il a 150 000 FCFA dans son coffre Wave. Il appelle le BO pour transférer cet argent sur son compte principal Wave.",
+     "q":"Quelles sont les deux conditions obligatoires avant d’effectuer le move balance ?",
+     "opts":["2 réponses sécurité + accord du client","4 bonnes réponses aux questions sécurité + transfert du montant TOTAL du coffre (pas de partiel)","Identification simple + accord manager","KYC2 suffit, pas de questions sécurité"],"a":1,
+     "exp":"Move balance coffre : 4 bonnes réponses aux questions sécurité obligatoires ET transfert du montant total uniquement. Aucun montant partiel autorisé."},
+
+    {"role":"BO","theme":"Move balance",
+     "case":"Un client réussit les 4 questions sécurité. Son coffre contient 200 000 FCFA. Il dit vouloir transférer uniquement 80 000 FCFA pour l’instant et garder le reste.",
+     "q":"Action BO ?",
+     "opts":["Transférer les 80 000 FCFA demandés — le client choisit le montant","Expliquer que le move balance est TOTAL uniquement ; demander confirmation pour les 200 000 FCFA. Si refus, ne pas procéder","Transférer FO","Rembourser le solde"],"a":1,
+     "exp":"Move balance : transfert du montant TOTAL du coffre obligatoire. Le partiel n’est pas autorisé. Si le client refuse le total, ne pas procéder."},
+
+    # ── Device restriction ──
+    {"role":"BO","theme":"Device restriction",
+     "case":"Un client a changé de téléphone il y a 2 jours. Maintenant son compte Wave est en ‘device restriction’ et il ne peut plus accéder à son argent.",
+     "q":"Étapes obligatoires en BO ?",
+     "opts":["Lever la restriction directement — changement de téléphone classique","Vérifier que l’appel vient du numéro concerné, identifier le client, effectuer AB Verification, puis lever la restriction si réussie","Faire Report B2W","Transférer FO"],"a":1,
+     "exp":"Device restriction : l’appel DOIT venir du numéro du compte concerné. Identification + AB Verification obligatoires. Lever la restriction uniquement si AB Verification réussie."},
+
+    # ── Refund B2P ──
+    {"role":"BO","theme":"Refund B2P",
+     "case":"Un marchand partenaire appelle le BO pour demander le remboursement d’un paiement B2P fait par un client hier. Il appelle depuis le numéro de son bureau (différent du numéro de la transaction).",
+     "q":"Que faire ?",
+     "opts":["Traiter le refund — le marchand a expliqué la situation","Demander au marchand de rappeler depuis le numéro qui a effectué la transaction","Merchant Issue","Créer Report B2W"],"a":1,
+     "exp":"Refund B2P : le marchand doit obligatoirement appeler depuis le numéro qui a effectué la transaction. Pas d’exception. Vérifier infos, confirmer montant, refund si fonds disponibles."},
+
+    # ── Autorisation parentale ──
+    {"role":"BO","theme":"Autorisation parentale",
+     "case":"Un mineur KYC2 appelle. Ses parents ne peuvent pas fournir l’autorisation parentale (document non disponible). Le mineur accepte explicitement que sa pièce soit rejetée pour revenir en KYC1.",
+     "q":"Que faire ?",
+     "opts":["Fermer définitivement le compte","Procéder à une identification complète + recueillir le type de pièce, puis rejeter la pièce pour revenir en KYC1","Transférer le compte à un parent","Débloquer les dépôts en attendant"],"a":1,
+     "exp":"Mineur KYC2 sans approbation parentale possible, accepte le rejet : identification complète + type de pièce d’identité, rejet de l’ID pour revenir KYC1."},
+
+    # ── Agent BO ──
+    {"role":"BO","theme":"Agent assistant",
+     "case":"Un assistant agent appelle le BO pour demander qu’on lui ajoute un deuxième assistant sur son compte.",
+     "q":"Qui peut faire cette demande et comment ?",
+     "opts":["L’assistant peut demander lui-même — il est concerné","Seul l’agent PRINCIPAL peut faire cette demande, depuis son numéro agent ; demande via ci-agent-management au TL avec @ci-agent-admins","Faire Merchant Issue","Transférer FO"],"a":1,
+     "exp":"Ajouter/retirer un assistant : uniquement l’agent principal peut demander, depuis son numéro agent. Demande Slack dans ci-agent-management au TL + @ci-agent-admins avec le template."},
+
+    {"role":"BO","theme":"Rééquilibrage banque",
+     "case":"Un agent a soumis son bordereau de rééquilibrage via l’app Wave il y a 4h. Les fonds ne sont toujours pas arrivés sur son compte agent. Aucune UV reçue.",
+     "q":"Action BO ?",
+     "opts":["Lui dire d’attendre encore — le délai normal peut aller jusqu’à 6h","Créer une demande dans ci-liquidity avec montant, nom agent, banque et date","Report B2W Problem","Transférer FO"],"a":1,
+     "exp":"Rééquilibrage par banque : bordereau soumis + plus de 3h sans UV = demande dans ci-liquidity avec le template complet (montant / agent / banque / date)."},
 ]
 
 # ─── Helpers semaines 2026 ───
