@@ -54,6 +54,14 @@ section[data-testid="stSidebar"] * {{color:{DARK} !important; font-weight:600;}}
 .badge-orange {{background:#FFE8C7; color:#9A4E00;}}
 .small-muted {{color:#667085; font-size:.95rem;}}
 .big-title {{font-size:2.7rem; font-weight:900; color:{DARK}; line-height:1.05;}}
+div[data-testid="stRadio"] label p {{color:#102033 !important;}}
+div[data-testid="stRadio"] label {{color:#102033 !important;}}
+div[data-testid="stRadio"] * {{color:#102033 !important;}}
+div[data-testid="stSelectbox"] * {{color:#102033 !important;}}
+div[data-testid="stMarkdownContainer"] p {{color:#102033 !important;}}
+div[data-testid="stMarkdownContainer"] h1, div[data-testid="stMarkdownContainer"] h2, div[data-testid="stMarkdownContainer"] h3 {{color:#102033 !important;}}
+.stRadio > div {{color:#102033 !important;}}
+p, h1, h2, h3, h4, label {{color:#102033 !important;}}
 hr {{border:none; border-top:1px solid #D8EDF4; margin:26px 0;}}
 </style>
 """, unsafe_allow_html=True)
