@@ -21,6 +21,24 @@ def save_custom(data):
     with open(CUSTOM_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+# ─── Stockage des résultats quiz ───
+RESULTS_FILE = os.path.join(os.path.dirname(__file__), "quiz_results.json")
+
+def load_results():
+    if os.path.exists(RESULTS_FILE):
+        try:
+            with open(RESULTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"results": []}
+    return {"results": []}
+
+def save_result(entry):
+    data = load_results()
+    data["results"].append(entry)
+    with open(RESULTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
 _custom = load_custom()
 
 st.set_page_config(page_title="Knowledge Support Wave V7", page_icon="🌊", layout="wide")
@@ -657,27 +675,92 @@ def render_assistant(profile):
 # ------------------------------ Training bank ------------------------------
 
 BANK = [
+    # ── Canal+ ──
     {"role":"FO","theme":"Canal+","case":"Un client a payé Canal+ et n’a pas les images. Le numéro de réabonnement visible sur Front correspond exactement au numéro donné.","q":"Quelle conduite tenir ?","opts":["Créer Bill Pay Problem","Orienter vers Canal+ au 1313","Faire Merchant Issue","Transférer BO"],"a":1,"exp":"Numéro correct + pas d’images = Wave n’a pas d’action corrective ; orienter Canal+ 1313."},
     {"role":"FO","theme":"Canal+","case":"Un client s’est trompé de numéro Canal+. La date de fin actuelle laisse au moins 7 jours ouvrés.","q":"Quelle action ?","opts":["Report Bill Payment Problem avec le bon numéro","Rembourser","Orienter uniquement 1313","Merchant Issue"],"a":0,"exp":"Erreur numéro + délai suffisant = Report Bill Payment Problem, délai environ 1 semaine ouvrée."},
+    {"role":"FO","theme":"Canal+","case":"Le client a payé pour une offre Canal+ inférieure à l’abonnement souhaité et veut modifier.","q":"Action ?","opts":["Modifier l’offre directement","Expliquer que l’offre inférieure n’est pas modifiable, orienter Canal+ 1313","Rembourser","Report Bill Payment Problem"],"a":1,"exp":"Canal+ : une offre inférieure souscrite ne peut pas être modifiée par Wave ; orienter vers Canal+ 1313."},
+    {"role":"FO","theme":"Canal+","case":"Le client a rechargé deux fois Canal+ par erreur. Il voit deux dates d’abonnement différentes.","q":"Que dire au client ?","opts":["Rembourser le double paiement","Expliquer que les deux recharges s’ajoutent (dates différentes), non annulable","Annuler la seconde","Merchant Issue"],"a":1,"exp":"Double recharge Canal+ : les dates s’additionnent, ce n’est pas une erreur ; l’option n’est pas annulable."},
+    # ── Facturiers ──
     {"role":"FO","theme":"CIE/SODECI","case":"Un client CIE postpayé dit que le montant figure encore sur sa facture après paiement Wave.","q":"Que faire ?","opts":["Escalader Partner Ops","Communiquer référence/ID transaction et orienter CIE 179/agence","Rembourser","Faire Merchant Issue"],"a":1,"exp":"CIE/SODECI : pas d’escalade Partner Ops ; les infos du reçu servent à l’agence/service client."},
     {"role":"FO","theme":"CIE prépayée","case":"Un client n’a pas reçu son code CIE prépayé, mais le code est visible sur Front.","q":"Action correcte ?","opts":["Communiquer/envoyer le code via Bill Pay Code","Faire Bill Pay Problem","Rembourser","Orienter directement agence sans donner le code"],"a":0,"exp":"Si code visible, le communiquer ou l’envoyer par SMS via Bill Pay Code."},
     {"role":"FO","theme":"Startimes","case":"Un client Startimes a une erreur de numéro réabonné.","q":"Que faire ?","opts":["Report Bill Payment Problem, 72h jours ouvrés","Aucun recours","Refund","Canal 1313"],"a":0,"exp":"Startimes : si erreur, Report Bill Payment Problem, délai 72h jours ouvrés."},
     {"role":"FO","theme":"FER","case":"Un client a saisi un mauvais numéro de badge FER.","q":"Conduite ?","opts":["Rembourser","Transférer sur autre carte","Aucun remboursement/transfert possible","Merchant Issue"],"a":2,"exp":"FER : aucun remboursement ni transfert en cas d’erreur de carte."},
+    {"role":"FO","theme":"CNPS","case":"Un client a payé un montant CNPS supérieur à ce qu’il devait.","q":"Que faire ?","opts":["Annuler le paiement Wave","Rembourser la différence","Inviter le client à voir la CNPS ; Wave ne peut pas annuler","Report B2W Problem"],"a":2,"exp":"CNPS : si paiement supérieur, pas d’annulation possible sur Wave ; le client doit contacter la CNPS."},
+    {"role":"FO","theme":"CIT","case":"Un client veut un remboursement après un paiement CIT erroné.","q":"Action ?","opts":["Faire le remboursement Wave","Aucun remboursement ; client va au bureau CIT","Report Bill Payment Problem","Escalader Partner Ops"],"a":1,"exp":"CIT : aucun remboursement Wave ; le client doit se rendre au bureau CIT."},
+    # ── B2W ──
     {"role":"FO","theme":"B2W","case":"Error details B2W indique : solde bancaire insuffisant.","q":"Que faire ?","opts":["Report B2W automatiquement","Orienter vers le gestionnaire bancaire","Recover PIN","Merchant Issue"],"a":1,"exp":"Raison bancaire claire = orienter vers la banque."},
+    {"role":"FO","theme":"B2W","case":"Un client a fait un B2W qui est resté ‘pending’. L’Error details ne montre pas de raison bancaire claire.","q":"Action ?","opts":["Orienter vers la banque","Report B2W Problem, délai 72h","Recover PIN","Ignorer"],"a":1,"exp":"Raison non claire = Report B2W Problem, délai max 72h."},
+    {"role":"FO","theme":"B2W","case":"Un client a changé de téléphone et son B2W est bloqué. Error details mentionne un problème de device linking.","q":"Que faire en FO ?","opts":["Traiter le B2W directement","Identifier, noter TR: device linking B2W, transférer BO","Report B2W Problem","Recover PIN"],"a":1,"exp":"Device linking B2W : FO identifie, note le motif, transfère BO qui suit le process device linking."},
+    # ── Merchant ──
     {"role":"FO","theme":"Merchant","case":"Un client réclame sur un paiement marchand. Le numéro service client du partenaire s’affiche.","q":"Action ?","opts":["Communiquer le numéro puis cliquer Fait","Ne jamais communiquer de numéro","Créer directement ticket","Rembourser"],"a":0,"exp":"Si numéro partenaire fourni, le communiquer et cliquer Fait."},
-    {"role":"FO","theme":"Agent","case":"Un agent signale gaming agent.","q":"Action FO ?","opts":["Traiter en FO","Transférer à la Fraude","Faire Recover PIN","Créer Bill Payment"],"a":1,"exp":"Gaming agent : FO transfère à la Fraude."},
+    {"role":"FO","theme":"Merchant","case":"Un client a un problème de paiement marchand mais aucun numéro partenaire n’est affiché.","q":"Action ?","opts":["Rien à faire","Créer Merchant Issue avec tous les détails, délai 72h ouvrés","Rembourser directement","Orienter vers Canal+"],"a":1,"exp":"Pas de numéro partenaire = Merchant Issue avec détails, délai 72h jours ouvrés."},
+    # ── Agent ──
+    {"role":"FO","theme":"Agent gaming","case":"Un agent signale gaming agent.","q":"Action FO ?","opts":["Traiter en FO","Transférer à la Fraude","Faire Recover PIN","Créer Bill Payment"],"a":1,"exp":"Gaming agent : FO transfère à la Fraude."},
     {"role":"FO","theme":"PDV","case":"Un client cherche un point de vente proche.","q":"Faut-il qu’il appelle avec son numéro Wave ?","opts":["Oui obligatoire","Non, demander la zone et chercher le PDV","Seulement KYC2","Transférer BO"],"a":1,"exp":"Localiser PDV : pas nécessaire d’appeler du numéro lié au compte."},
-    {"role":"BO","theme":"Lost Phone","case":"Compte bloqué dimanche pour téléphone perdu. Le client rappelle le même dimanche.","q":"Décision ?","opts":["Débloquer après AB","Ne pas débloquer le même jour","Recover PIN uniquement","Rejet pièce"],"a":1,"exp":"Dimanche même jour = déblocage non autorisé ; possible à partir du lendemain."},
-    {"role":"BO","theme":"Lost Phone","case":"Compte bloqué samedi après 13h. Le client rappelle dimanche.","q":"Décision ?","opts":["Débloquer après AB","Ne pas débloquer, rappeler lundi","Report B2W","Rejeter pièce"],"a":1,"exp":"Cas spécial : samedi après 13h + dimanche = rappeler lundi."},
+    {"role":"FO","theme":"Agent commission","case":"Un agent signale que ses commissions ont été coupées sans explication.","q":"Action ?","opts":["Rembourser","Escalader Escalate > Request Risk to Explain Commissions Cut avec la date","Faire Report B2W","Transférer FO"],"a":1,"exp":"Commission coupée : Escalate > Request Risk to Explain, avec la date de coupure."},
+    {"role":"FO","theme":"Agent lien app","case":"Un agent appelle car son application Wave agent ne fonctionne pas.","q":"Action ?","opts":["Lui demander de se rendre en agence","Vérifier agent principal/assistant, désinstaller et renvoyer le lien via Front > Agent > More > Send link","Faire Merchant Issue","Recover PIN"],"a":1,"exp":"Lien app agent : désinstallation + renvoi du lien via Front, depuis le numéro concerné."},
+    {"role":"FO","theme":"Agent prospect","case":"Un client veut devenir agent Wave.","q":"Que faire ?","opts":["Lui communiquer directement le statut","Donner les critères et envoyer le lien Request to be an agent via Front","Transférer Manager","Créer ticket BO"],"a":1,"exp":"Devenir agent : donner critères et lien Request to be an agent via Front."},
+    # ── Carte Visa Wave ──
+    {"role":"FO","theme":"Carte Visa — Info","case":"Un client demande pourquoi il ne voit pas l’option Carte Visa dans son application Wave.","q":"Action ?","opts":["Lui créer la carte directement","Transférer à l’équipe Virtual Visa","Report B2W","Recover PIN"],"a":1,"exp":"Toute question sur la carte Visa (accès, activation, tarifs, CVV) : transférer à l’équipe Virtual Visa."},
+    {"role":"FO","theme":"Carte Visa — Fraude","case":"Un client signale plusieurs paiements inconnus sur sa carte Visa Wave et craint une fraude.","q":"Quelle est la priorité absolue ?","opts":["Ouvrir un litige directement","Guider le client pour bloquer la carte dans l’app, puis transférer l’équipe Virtual Visa","Faire Report B2W","Recover PIN"],"a":1,"exp":"Fraude carte Visa : bloquer la carte immédiatement (app Wave > Carte > Bloquer) puis transférer Virtual Visa avec les détails."},
+    {"role":"FO","theme":"Carte Visa — Paiement refusé","case":"Le client dit que sa carte Visa Wave est suffisamment approvisionnée, mais son paiement en ligne est refusé.","q":"Action ?","opts":["Rembourser","Vérifier le solde puis transférer Virtual Visa avec les détails du site et du message d’erreur","Faire Merchant Issue","Recover PIN"],"a":1,"exp":"Paiement refusé carte Visa : vérifier solde, puis transférer Virtual Visa avec nom du site, type de paiement et message d’erreur."},
+    {"role":"FO","theme":"Carte Visa — Litige","case":"Le client a été débité deux fois pour le même achat avec sa carte Visa Wave.","q":"Action ?","opts":["Procéder directement au remboursement","Recueillir date/montant/marchand et transférer Virtual Visa pour ouverture de litige","Faire Report B2W","Ignorer"],"a":1,"exp":"Litige double débit carte Visa : collecter les informations (date, montant, marchand) et transférer Virtual Visa."},
+    {"role":"FO","theme":"Carte Visa — Remboursement","case":"Le client demande un remboursement pour une commande payée avec sa carte Visa Wave mais jamais reçue.","q":"Action ?","opts":["Rembourser directement","Transférer Virtual Visa avec date, montant, marchand et motif du remboursement","Report B2W Problem","Merchant Issue"],"a":1,"exp":"Remboursement carte Visa : transférer Virtual Visa avec tous les détails. Le délai est communiqué par leur équipe."},
+    # ── BO spécifiques ──
+    {"role":"BO","theme":"Déblocage compte","case":"Compte bloqué dimanche pour téléphone perdu. Le client rappelle le même dimanche.","q":"Décision ?","opts":["Débloquer après AB","Ne pas débloquer le même jour","Recover PIN uniquement","Rejet pièce"],"a":1,"exp":"Dimanche même jour = déblocage non autorisé ; possible à partir du lendemain."},
+    {"role":"BO","theme":"Déblocage compte","case":"Compte bloqué samedi après 13h. Le client rappelle dimanche.","q":"Décision ?","opts":["Débloquer après AB","Ne pas débloquer, rappeler lundi","Report B2W","Rejeter pièce"],"a":1,"exp":"Cas spécial : samedi après 13h + dimanche = rappeler lundi."},
+    {"role":"BO","theme":"Déblocage compte","case":"Compte bloqué hier pour fraude. Le client appelle aujourd’hui et veut débloquer.","q":"Action BO ?","opts":["Débloquer directement","Créer ticket déblocage compte, ne pas débloquer directement","Faire Recover PIN","Rejeter la pièce"],"a":1,"exp":"Blocage Fraude : ne jamais débloquer directement ; créer ticket déblocage compte."},
     {"role":"BO","theme":"Double identité","case":"Client veut une action mais Front montre deux noms. L’appelant est le nom du bas et reconnaît avoir utilisé la pièce d’un tiers. Blocage non Fraude.","q":"Priorité ?","opts":["Exécuter l’action principale directement","Traiter d’abord l’identité/rejet pièce si sécurité validée","Créer ticket Fraude automatiquement","Refuser définitivement"],"a":1,"exp":"Double identité non Fraude : régler l’identité avant l’action principale."},
     {"role":"BO","theme":"Double identité + Fraude","case":"Compte avec double identité mais le blocage est Fraude.","q":"Action ?","opts":["Rejeter la pièce","Créer ticket déblocage compte, pas rejet ID","Débloquer direct","Move balance"],"a":1,"exp":"Blocage Fraude : pas de rejet de pièce ; ticket déblocage compte."},
     {"role":"BO","theme":"Rejet pièce agent","case":"Un agent demande le rejet de la pièce présente sur son compte agent.","q":"Process ?","opts":["Recover PIN","Demande #ci-compliance avec ID agent et motif","Canal+","Refund"],"a":1,"exp":"Rejet pièce agent : #ci-compliance, tag personnes prévues, délai annoncé 30 min."},
     {"role":"BO","theme":"Refund","case":"Un client demande plusieurs refunds.","q":"Action BO ?","opts":["Procéder aux remboursements","Toujours refuser","Merchant Issue","CIE 179"],"a":0,"exp":"BO peut procéder aux remboursements. Si contestation destinataire : report refunding dispute."},
     {"role":"BO","theme":"Refund dispute","case":"Le destinataire appelle pour contester un refund effectué.","q":"Action ?","opts":["Annuler le refund","Créer report refunding dispute et annoncer 48h jours ouvrés","Canal 1313","Rejeter pièce"],"a":1,"exp":"Contestations de refund : ticket report refunding dispute, 48h jours ouvrés."},
     {"role":"BO","theme":"Move balance","case":"Client sans smartphone veut transférer l’argent de son coffre vers solde principal.","q":"Condition clé ?","opts":["2 réponses sécurité","4 bonnes réponses + move balance total","Montant partiel autorisé","Aucun contrôle"],"a":1,"exp":"Move balance coffre : 4 bonnes réponses, transfert total uniquement."},
+    {"role":"BO","theme":"Move balance","case":"Le client veut faire un move balance partiel (il ne veut pas transférer tout le coffre).","q":"Action ?","opts":["Autoriser le montant partiel","Expliquer que le move balance est total uniquement ; demander confirmation du total","Transférer FO","Rembourser"],"a":1,"exp":"Move balance : transfert du montant TOTAL uniquement. Partiel non autorisé."},
     {"role":"BO","theme":"Autorisation parentale","case":"Mineur KYC2 ne peut pas obtenir l’approbation parentale et accepte le rejet de pièce.","q":"Que faire ?","opts":["Fermer compte","Identifier complètement + type pièce puis rejeter ID","Débloquer dépôts","B2W"],"a":1,"exp":"Mineur sans approbation et accepte : identification complète + type pièce, rejet ID pour revenir KYC1."},
     {"role":"BO","theme":"Identification","case":"Client KYC2 dit avoir utilisé la pièce d’un proche. Il réussit les questions sécurité obligatoires.","q":"Action ?","opts":["Rejeter la pièce et inviter à refaire l’identification avec sa pièce","Débloquer sans action","Transférer FO","Refuser définitivement"],"a":0,"exp":"BO identification : si sécurité réussie, rejeter pièce du tiers et inviter à utiliser sa propre pièce."},
+    {"role":"BO","theme":"Identification","case":"L’appelant n’est pas le titulaire du compte. Il demande une action au nom du vrai propriétaire.","q":"Action ?","opts":["Faire l’action demandée si le motif est valable","Ne pas rejeter la pièce ; inviter le vrai titulaire à rappeler","Débloquer directement","Créer un ticket Fraude"],"a":1,"exp":"Identification titulaire : si l’appelant n’est pas le propriétaire, ne pas rejeter la pièce, inviter le vrai titulaire à rappeler."},
+    {"role":"BO","theme":"Device restriction","case":"Le client appelle car son compte est en device restriction après changement de téléphone.","q":"Étape clé ?","opts":["Débloquer sans vérification","Identifier, vérifier AB Verification, puis lever la restriction si réussie","Faire Report B2W","Transférer FO direct"],"a":1,"exp":"Device restriction : appel du numéro concerné obligatoire, identification + AB Verification, puis lever si réussite."},
+    {"role":"BO","theme":"Refund B2P","case":"Un marchand appelle pour demander un Refund B2P à un client.","q":"Condition ?","opts":["Le marchand peut appeler de n’importe quel numéro","Le marchand doit appeler avec le numéro qui a effectué la transaction","Aucune vérification nécessaire","Faire Merchant Issue"],"a":1,"exp":"Refund B2P : le marchand doit obligatoirement appeler avec le numéro de la transaction."},
+    {"role":"BO","theme":"Agent assistant","case":"Un agent principal veut ajouter un assistant à son compte agent.","q":"Qui fait la demande et comment ?","opts":["N’importe quel agent peut demander","Seul l’agent principal appelle depuis son numéro agent ; demande dans ci-agent-management au TL","Faire Merchant Issue","Transférer FO"],"a":1,"exp":"Ajouter/retirer assistant : uniquement l’agent principal, depuis son numéro agent, via ci-agent-management au TL."},
+    {"role":"BO","theme":"Rééquilibrage banque","case":"Un agent a soumis un bordereau de rééquilibrage via app il y a 4h mais les fonds ne sont pas arrivés.","q":"Action ?","opts":["Attendre encore","Demande dans ci-liquidity avec montant/agent/banque/date","Report B2W","Transférer FO"],"a":1,"exp":"Rééquilibrage par banque : bordereau soumis + 3h sans UV → demande dans ci-liquidity avec template complet."},
 ]
+
+# ─── Helpers semaines 2026 ───
+def get_week_of_2026(d=None):
+    if d is None:
+        d = date.today()
+    start = date(2026, 1, 1)
+    if d < start:
+        return 1
+    if d > date(2026, 12, 31):
+        return 52
+    return min(52, (d - start).days // 7 + 1)
+
+def week_label(w):
+    start = date(2026, 1, 1) + timedelta(weeks=w - 1)
+    end = min(start + timedelta(days=6), date(2026, 12, 31))
+    return f"Semaine {w}  ({start.strftime('%d %b')} – {end.strftime('%d %b')})"
+
+def weekly_items(role, n, week, mix_fo_bo=False):
+    seed = 2026 * 1000 + week + (7 if role == "Back Office" else 3) + (13 if mix_fo_bo else 0)
+    if mix_fo_bo:
+        pool = BANK[:]
+    elif role == "Back Office":
+        pool = [x for x in BANK if x["role"] in ["FO", "BO"]]
+    else:
+        pool = [x for x in BANK if x["role"] == "FO"]
+    rnd = random.Random(seed)
+    items = pool[:]
+    rnd.shuffle(items)
+    seen = set(); diverse = []; rest = []
+    for it in items:
+        if it["theme"] not in seen:
+            diverse.append(it); seen.add(it["theme"])
+        else:
+            rest.append(it)
+    ordered = diverse + rest
+    return ordered[:n]
 
 def daily_items(role, n, offset=0):
     today = date.today().toordinal() + offset
@@ -694,30 +777,183 @@ def daily_items(role, n, offset=0):
     if len(diverse)<n: diverse += [x for x in items if x not in diverse][:n-len(diverse)]
     return diverse[:n]
 
-def render_quiz(profile):
-    st.markdown('<div class="wave-card"><div class="big-title">🎓 Quiz du jour</div><p>Même quiz pour tous les reps le même jour, différent selon rôle et date.</p></div>', unsafe_allow_html=True)
-    role = st.selectbox("Quiz pour", ["Front Office","Back Office"], index=0 if profile=="Front Office" else 1)
-    day = st.date_input("Date du quiz", value=date.today())
+def render_quiz(profile, rep_name):
+    import io, csv
+    st.markdown('<div class="wave-card"><div class="big-title">🎓 Quiz hebdomadaire</div><p>Même quiz pour tous les reps la même semaine — questions différentes chaque semaine.</p></div>', unsafe_allow_html=True)
+
+    if not rep_name:
+        st.warning("⚠️ Entrez votre nom dans la barre latérale avant de démarrer le quiz.")
+        return
+
+    # Sélection semaine
+    current_week = get_week_of_2026()
+    week = st.selectbox("Semaine du quiz", list(range(1, 53)),
+                        index=current_week - 1,
+                        format_func=week_label)
+
+    # Profil et mix
+    col_role, col_mix = st.columns([2, 1])
+    with col_role:
+        role = st.selectbox("Profil du quiz", ["Front Office", "Back Office"],
+                            index=0 if profile == "Front Office" else 1)
+    with col_mix:
+        mix = False
+        if role == "Back Office":
+            mix = st.checkbox("Mixer FO + BO", value=False,
+                              help="Inclure des questions Front Office en plus des questions BO")
+
     n = st.slider("Nombre de questions", 5, 15, 10)
-    offset = day.toordinal() - date.today().toordinal()
-    items = daily_items(role, n, offset)
-    st.info(f"Quiz du {day.isoformat()} — {role}. Tous les reps ont les mêmes questions pour cette date.")
-    answers=[]
-    for i,it in enumerate(items,1):
+    items = weekly_items(role, n, week, mix_fo_bo=mix)
+
+    profil_label = f"{role}{' + FO' if mix else ''}"
+    st.info(f"**{week_label(week)}** — {profil_label}. Toute l'équipe a les mêmes questions cette semaine.")
+
+    answers = []
+    for i, it in enumerate(items, 1):
         st.markdown(f'<div class="wave-card"><h3>Question {i} — {it["theme"]}</h3><p>{it["case"]}</p><b>{it["q"]}</b></div>', unsafe_allow_html=True)
-        ans=st.radio("Réponse", it["opts"], key=f"quiz_{day}_{role}_{i}")
+        ans = st.radio("Réponse", it["opts"], key=f"quiz_{week}_{role}_{mix}_{i}")
         answers.append((it, ans))
-    if st.button("Corriger le quiz", type="primary"):
-        score=0; weak=[]
-        for i,(it,ans) in enumerate(answers,1):
-            ok = it["opts"].index(ans)==it["a"]
+
+    if st.button("✅ Corriger le quiz", type="primary"):
+        score = 0; weak = []; detail = []
+        for i, (it, ans) in enumerate(answers, 1):
+            ok = it["opts"].index(ans) == it["a"]
             score += ok
             if not ok: weak.append(it["theme"])
-            st.markdown(f"**Q{i} — {'✅' if ok else '❌'} {it['theme']}**")
+            detail.append({"theme": it["theme"], "correct": ok})
+            color = "✅" if ok else "❌"
+            st.markdown(f"**Q{i} — {color} {it['theme']}**")
             st.write(f"Bonne réponse : **{it['opts'][it['a']]}**")
             st.caption(it["exp"])
-        st.success(f"Score : {score}/{len(items)}")
-        if weak: st.warning("Process à retravailler : " + ", ".join(sorted(set(weak))))
+
+        pct = round(score / len(items) * 100)
+        if pct >= 80:
+            st.success(f"🎉 Score : {score}/{len(items)} — {pct}%")
+        elif pct >= 60:
+            st.warning(f"📊 Score : {score}/{len(items)} — {pct}%")
+        else:
+            st.error(f"📉 Score : {score}/{len(items)} — {pct}% — Process à retravailler")
+
+        if weak:
+            st.warning("⚠️ Process à retravailler : " + ", ".join(sorted(set(weak))))
+
+        # Sauvegarde résultat
+        entry = {
+            "rep": rep_name, "week": week, "year": 2026,
+            "date": date.today().isoformat(), "profile": profil_label,
+            "score": score, "total": len(items), "pct": pct,
+            "weak": sorted(set(weak)), "detail": detail
+        }
+        try:
+            save_result(entry)
+        except Exception:
+            pass
+
+        # Export CSV individuel
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%"])
+        w.writerow([rep_name, week, date.today().isoformat(), profil_label, score, len(items), pct])
+        w.writerow([])
+        w.writerow(["#", "Thème", "Correct", "Bonne réponse"])
+        for i2, (it2, ans2) in enumerate(answers, 1):
+            ok2 = it2["opts"].index(ans2) == it2["a"]
+            w.writerow([i2, it2["theme"], "Oui" if ok2 else "Non", it2["opts"][it2["a"]]])
+        st.download_button(
+            "📥 Exporter mon résultat (CSV)",
+            buf.getvalue().encode("utf-8"),
+            f"quiz_s{week:02d}_{rep_name.replace(' ', '_')}.csv",
+            "text/csv",
+            key="dl_quiz_result"
+        )
+
+def render_ranking():
+    import io, csv
+    st.markdown('<div class="wave-card"><div class="big-title">📊 Classement & Rapports</div><p>Résultats des quiz par semaine — classement équipe, process faibles, export.</p></div>', unsafe_allow_html=True)
+
+    data = load_results()
+    results = data.get("results", [])
+
+    if not results:
+        st.info("Aucun résultat enregistré. Les résultats apparaissent ici après la correction du quiz.")
+        return
+
+    weeks_available = sorted(set(r["week"] for r in results), reverse=True)
+    week_sel = st.selectbox("Semaine à afficher", weeks_available, format_func=week_label)
+    week_results = [r for r in results if r["week"] == week_sel]
+
+    # Meilleur score par rep pour cette semaine
+    best = {}
+    for r in week_results:
+        rep = r["rep"]
+        if rep not in best or r["pct"] > best[rep]["pct"]:
+            best[rep] = r
+    ranking = sorted(best.values(), key=lambda x: x["pct"], reverse=True)
+
+    # ── Classement
+    st.markdown(f"### 🏆 Classement — {week_label(week_sel)}")
+    medals = ["🥇", "🥈", "🥉"]
+    for i, r in enumerate(ranking):
+        med = medals[i] if i < 3 else f"{i+1}."
+        pct = r["pct"]
+        bar = "🟩" * (pct // 10) + "⬜" * (10 - pct // 10)
+        lvl = "✅ En maîtrise" if pct >= 80 else "⚠️ En progression" if pct >= 60 else "❌ À renforcer"
+        st.markdown(f"**{med} {r['rep']}** — {r['score']}/{r['total']} ({pct}%) — {r['profile']}  \n{bar} {lvl}")
+
+    st.divider()
+
+    # ── Process les plus échoués
+    st.markdown("### 📉 Process les plus échoués cette semaine")
+    theme_fails = {}
+    theme_total = {}
+    for r in week_results:
+        for d in r.get("detail", []):
+            t = d["theme"]
+            theme_total[t] = theme_total.get(t, 0) + 1
+            if not d["correct"]:
+                theme_fails[t] = theme_fails.get(t, 0) + 1
+
+    if theme_fails:
+        sorted_fails = sorted(theme_fails.items(), key=lambda x: x[1], reverse=True)
+        for theme, fails in sorted_fails[:10]:
+            total_q = theme_total.get(theme, fails)
+            pct_fail = round(fails / total_q * 100)
+            bar = "🔴" if pct_fail >= 60 else "🟠" if pct_fail >= 30 else "🟡"
+            st.write(f"{bar} **{theme}** — {fails} erreur(s) sur {total_q} tentative(s) ({pct_fail}% d'échec)")
+    else:
+        st.success("Aucune erreur cette semaine !")
+
+    st.divider()
+
+    # ── Export global
+    st.markdown("### 📥 Export des résultats")
+    col1, col2 = st.columns(2)
+    with col1:
+        # Export semaine sélectionnée
+        buf_w = io.StringIO()
+        ww = csv.writer(buf_w)
+        ww.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%", "Process faibles"])
+        for r in sorted(week_results, key=lambda x: x["pct"], reverse=True):
+            ww.writerow([r["rep"], r["week"], r["date"], r["profile"],
+                         r["score"], r["total"], r["pct"], ", ".join(r.get("weak", []))])
+        st.download_button(
+            f"📥 Semaine {week_sel} (CSV)",
+            buf_w.getvalue().encode("utf-8"),
+            f"quiz_semaine{week_sel:02d}.csv", "text/csv", key="dl_week"
+        )
+    with col2:
+        # Export tous résultats
+        buf_all = io.StringIO()
+        wa = csv.writer(buf_all)
+        wa.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%", "Process faibles"])
+        for r in sorted(results, key=lambda x: (x["week"], x["rep"])):
+            wa.writerow([r["rep"], r["week"], r["date"], r["profile"],
+                         r["score"], r["total"], r["pct"], ", ".join(r.get("weak", []))])
+        st.download_button(
+            "📥 Tous les résultats (CSV)",
+            buf_all.getvalue().encode("utf-8"),
+            "quiz_resultats_complets.csv", "text/csv", key="dl_all"
+        )
 
 def render_cases(profile):
     st.markdown('<div class="wave-card"><div class="big-title">📞 Cas pratiques du jour</div><p>Scénarios narratifs quotidiens, sans annoncer le process dès le départ.</p></div>', unsafe_allow_html=True)
@@ -920,15 +1156,26 @@ def render_admin(profile):
 st.sidebar.markdown("## 🌊 Knowledge\n## Support Wave")
 st.sidebar.markdown("### V7 — assistant métier")
 profile = st.sidebar.radio("Profil", ["Front Office", "Back Office", "Manager"])
-rep = st.sidebar.text_input("Nom du rep", placeholder="Ex : Serge")
-module = st.sidebar.selectbox("Module", ["Assistant métier", "Quiz du jour", "Cas pratiques", "Tests métier V7", "⚙️ Administration"])
+rep = st.sidebar.text_input("Nom du rep", placeholder="Ex : Serge", key="rep_name_input")
+if rep:
+    st.session_state["rep_name"] = rep
+rep_name = st.session_state.get("rep_name", "")
+if rep_name:
+    st.sidebar.success(f"👤 {rep_name}")
+else:
+    st.sidebar.info("Entrez votre nom pour utiliser le quiz.")
+module = st.sidebar.selectbox("Module", [
+    "Assistant métier", "🎓 Quiz hebdomadaire", "📊 Classement",
+    "Cas pratiques", "Tests métier V7", "⚙️ Administration"
+])
 st.sidebar.markdown("---")
 st.sidebar.write("**Règle rôle :** FO voit uniquement les actions FO. BO voit FO + BO. Manager voit tout.")
 st.sidebar.write("**Moteur :** objectif client + obstacles + branches conditionnelles.")
-st.sidebar.write(f"**{len(QUALIFY_OPTIONS)+len(BANK)+80} éléments métier chargés**")
+st.sidebar.write(f"**{len(QUALIFY_OPTIONS)} process · {len(KEYWORDS)} keywords · {len(BANK)} questions quiz**")
 
 if module == "Assistant métier": render_assistant(profile)
-elif module == "Quiz du jour": render_quiz(profile)
+elif module == "🎓 Quiz hebdomadaire": render_quiz(profile, rep_name)
+elif module == "📊 Classement": render_ranking()
 elif module == "Cas pratiques": render_cases(profile)
 elif module == "Tests métier V7": render_tests()
 else: render_admin(profile)
