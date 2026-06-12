@@ -744,12 +744,15 @@ def week_label(w):
 
 def weekly_items(role, n, week, mix_fo_bo=False):
     seed = 2026 * 1000 + week + (7 if role == "Back Office" else 3) + (13 if mix_fo_bo else 0)
-    if mix_fo_bo:
-        pool = BANK[:]
-    elif role == "Back Office":
-        pool = [x for x in BANK if x["role"] in ["FO", "BO"]]
-    else:
+    if role == "Front Office":
+        # FO : uniquement les questions FO
         pool = [x for x in BANK if x["role"] == "FO"]
+    elif mix_fo_bo:
+        # BO avec mix coché : questions BO + FO
+        pool = BANK[:]
+    else:
+        # BO par défaut : uniquement les questions BO
+        pool = [x for x in BANK if x["role"] == "BO"]
     rnd = random.Random(seed)
     items = pool[:]
     rnd.shuffle(items)
