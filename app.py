@@ -1456,85 +1456,645 @@ def render_ranking():
             "quiz_resultats_complets.csv", "text/csv", key="dl_all"
         )
 
+# ── Scénarios de simulation client (dialogue interactif chronométré) ─────────
+
+DIALOGUES = [
+    {
+        "id": "d_canal", "role": "FO",
+        "titre": "Canal+ — décodeur sans image",
+        "difficulte": "⭐⭐",
+        "process_cible": "canal",
+        "persona": "M. Koffi, 52 ans, parle vite, peu à l'aise avec les apps, répète souvent les mêmes choses",
+        "intro": "📞 « Allô ! Mon machin là il marche pas depuis ce matin ! Ma femme a payé mais ça marche toujours pas ! Vous devez me rembourser ! »",
+        "etapes": [
+            {
+                "client": "« Je vous dis que ça marche pas ! Mon voisin il a pas ce problème lui... »",
+                "question": "Première action pour qualifier la demande :",
+                "choix": [
+                    {"t": "Demander le numéro Wave du client pour consulter son compte", "bon": True,
+                     "fb": "✅ Correct — toujours identifier le compte avant toute autre action."},
+                    {"t": "Lui expliquer le processus de remboursement Wave", "bon": False,
+                     "fb": "❌ Prématuré — on n'a pas encore qualifié la demande."},
+                    {"t": "Lui demander si son décodeur est bien branché", "bon": False,
+                     "fb": "❌ Hors périmètre Wave — c'est Canal+ qui gère le matériel."},
+                    {"t": "Transférer immédiatement au Back Office", "bon": False,
+                     "fb": "❌ Pas encore qualifié. FO peut traiter ce type de cas."},
+                ]
+            },
+            {
+                "client": "« Mon numéro c'est 07 XX XX XX. C'est ma femme qui a payé hier soir. »",
+                "question": "Compte ouvert dans Front. Que vérifiez-vous en premier ?",
+                "choix": [
+                    {"t": "Chercher une transaction Canal+ dans l'historique du compte", "bon": True,
+                     "fb": "✅ Correct — confirmer d'abord que le paiement existe bien dans Front."},
+                    {"t": "Vérifier le solde du compte", "bon": False,
+                     "fb": "❌ Le solde ne prouve pas qu'un paiement Canal+ a eu lieu."},
+                    {"t": "Créer un Report Bill Payment Problem immédiatement", "bon": False,
+                     "fb": "❌ On doit d'abord confirmer la transaction avant d'ouvrir un report."},
+                    {"t": "Demander si la femme a reçu un SMS de confirmation", "bon": False,
+                     "fb": "❌ L'historique Front est la source de vérité — pas les SMS client."},
+                ]
+            },
+            {
+                "client": "« Le numéro du décodeur ? Attends... ma femme dit que c'est 00456789... ou 00456798... elle est pas sûre ! »",
+                "question": "Transaction Canal+ confirmée dans Front. Numéro de décodeur incertain. Que faites-vous ?",
+                "choix": [
+                    {"t": "Demander au client de lire le numéro directement sur l'étiquette physique du décodeur", "bon": True,
+                     "fb": "✅ Le numéro exact est toujours sur l'étiquette physique du décodeur."},
+                    {"t": "Prendre le premier numéro donné et créer le report", "bon": False,
+                     "fb": "❌ Un mauvais numéro invalide le Report Bill Payment — Canal+ ne pourra pas traiter."},
+                    {"t": "Orienter directement vers Canal+ 1313 pour qu'ils vérifient eux-mêmes", "bon": False,
+                     "fb": "❌ Canal+ a aussi besoin du bon numéro — même problème."},
+                    {"t": "Rembourser le paiement Wave puisque le décodeur ne marche pas", "bon": False,
+                     "fb": "❌ On ne rembourse pas — le report avec le bon numéro est la bonne action."},
+                ]
+            },
+            {
+                "client": "« Bon le numéro sur le décodeur c'est 00456789. Et l'abonnement finit dans 4 jours... »",
+                "question": "Bon numéro confirmé. 4 jours restants avant expiration. Action finale ?",
+                "choix": [
+                    {"t": "Créer un Report Bill Payment Problem — 4 jours est suffisant (seuil min = 3 jours ouvrés)", "bon": True,
+                     "fb": "✅ 4 jours > seuil minimum de 3 jours ouvrés. Report créé avec bon numéro. Délai : ~1 semaine ouvrée."},
+                    {"t": "Refuser — moins de 5 jours restants, délai trop court", "bon": False,
+                     "fb": "❌ Le seuil est 3 jours ouvrés minimum, pas 5. 4 jours est suffisant."},
+                    {"t": "Orienter vers Canal+ 1313 — délai trop court pour un report Wave", "bon": False,
+                     "fb": "❌ 4 jours suffit pour le process Report Bill Payment."},
+                    {"t": "Demander au client de repayer avec le bon numéro et demander remboursement", "bon": False,
+                     "fb": "❌ Le paiement existant est valide — pas besoin de repayer."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_recover_pin", "role": "FO",
+        "titre": "Recover PIN — client confus entre PIN et app",
+        "difficulte": "⭐",
+        "process_cible": "recover_pin",
+        "persona": "Mme Coulibaly, 38 ans, dit que son application 'ne s'ouvre pas', ton inquiet",
+        "intro": "📞 « Allô ! Mon Wave il marche plus depuis ce matin ! J'arrive pas à l'ouvrir ! J'ai tout essayé ! »",
+        "etapes": [
+            {
+                "client": "« Ça m'affiche quelque chose sur l'écran mais je comprends pas bien ce que ça dit... »",
+                "question": "Comment qualifier ce problème en premier ?",
+                "choix": [
+                    {"t": "Demander à la cliente ce qui s'affiche exactement à l'écran", "bon": True,
+                     "fb": "✅ 'Ne s'ouvre pas' peut être un PIN oublié, un blocage compte ou un bug app. Il faut qualifier."},
+                    {"t": "Lancer immédiatement un Recover PIN", "bon": False,
+                     "fb": "❌ On ne sait pas encore si c'est un problème de PIN — pas de précipitation."},
+                    {"t": "Transférer au BO — problème technique avancé", "bon": False,
+                     "fb": "❌ Pas encore qualifié. FO peut traiter la grande majorité de ces cas."},
+                    {"t": "Demander de désinstaller et réinstaller l'app Wave", "bon": False,
+                     "fb": "❌ Hors process, et si c'est un PIN oublié, ça ne changera rien."},
+                ]
+            },
+            {
+                "client": "« Ça dit... 'Code incorrect. Il vous reste 2 tentatives.' C'est pour le code PIN ça ? »",
+                "question": "L'écran affiche 'Code incorrect — 2 tentatives restantes'. Que faites-vous ?",
+                "choix": [
+                    {"t": "STOP — ne plus tenter de code. Lancer le Recover PIN depuis le numéro Wave concerné", "bon": True,
+                     "fb": "✅ 2 tentatives restantes = stopper immédiatement. Recover PIN est la seule solution sûre."},
+                    {"t": "Lui demander d'essayer encore — elle a encore 2 chances", "bon": False,
+                     "fb": "❌ Risque de bloquer définitivement le compte. Ne jamais encourager à tenter."},
+                    {"t": "Transférer BO pour déblocage compte", "bon": False,
+                     "fb": "❌ Ce n'est pas un blocage compte — c'est un PIN oublié. Recover PIN suffit."},
+                    {"t": "Demander son PIN actuel pour vérification", "bon": False,
+                     "fb": "❌ Interdit — jamais demander le PIN d'un client."},
+                ]
+            },
+            {
+                "client": "« D'accord. Mais j'appelle depuis le téléphone de mon mari là... mon Wave c'est mon numéro perso. »",
+                "question": "La cliente appelle depuis le téléphone de son mari, pas depuis son numéro Wave. Que faites-vous ?",
+                "choix": [
+                    {"t": "Lancer le Recover PIN sur son numéro Wave depuis Front", "bon": True,
+                     "fb": "✅ Le Recover PIN se lance depuis Front sur le numéro Wave concerné — peu importe d'où la cliente appelle."},
+                    {"t": "Refuser — elle doit appeler depuis son propre numéro Wave", "bon": False,
+                     "fb": "❌ Faux. C'est le rep qui lance le Recover PIN depuis Front — pas besoin que la cliente appelle depuis ce numéro."},
+                    {"t": "Transférer BO — situation exceptionnelle", "bon": False,
+                     "fb": "❌ FO gère le Recover PIN directement depuis Front, quel que soit le numéro d'appel."},
+                    {"t": "Créer un ticket et lui dire de rappeler plus tard", "bon": False,
+                     "fb": "❌ Le Recover PIN peut être lancé maintenant depuis Front."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_device", "role": "BO",
+        "titre": "Device restriction — nouveau téléphone",
+        "difficulte": "⭐⭐",
+        "process_cible": "device_restriction",
+        "persona": "M. Diallo, 29 ans, calme mais insistant, ne comprend pas pourquoi son compte est bloqué",
+        "intro": "📞 « Bonjour, je peux plus utiliser mon Wave depuis hier soir. Pourtant j'ai de l'argent dessus et j'ai rien fait de mal. »",
+        "etapes": [
+            {
+                "client": "« L'application me dit 'votre compte est restreint'. Je comprends pas, j'ai rien changé... »",
+                "question": "Message 'compte restreint'. Première question au client :",
+                "choix": [
+                    {"t": "Demander s'il a récemment changé de téléphone ou de SIM", "bon": True,
+                     "fb": "✅ Device restriction survient quasi systématiquement après un changement d'appareil. Bonne qualification."},
+                    {"t": "Lui annoncer que son compte est bloqué pour fraude", "bon": False,
+                     "fb": "❌ Jamais annoncer 'fraude' sans vérification — et ici rien ne l'indique."},
+                    {"t": "Lancer un Recover PIN", "bon": False,
+                     "fb": "❌ Ce n'est pas un problème de PIN — c'est une restriction d'appareil."},
+                    {"t": "Créer un ticket déblocage compte immédiatement", "bon": False,
+                     "fb": "❌ Le process device restriction est distinct du déblocage compte. Qualifier d'abord."},
+                ]
+            },
+            {
+                "client": "« Ah oui ! J'ai eu un nouveau Samsung hier matin. J'ai mis ma SIM dedans. C'est pour ça ? »",
+                "question": "Changement de téléphone confirmé = device restriction. Conditions pour la lever ?",
+                "choix": [
+                    {"t": "Vérifier que l'appel vient du numéro Wave concerné puis lancer AB Verification (4 questions)", "bon": True,
+                     "fb": "✅ Appel depuis le bon numéro + AB Verification 4/4 = conditions de levée de la restriction."},
+                    {"t": "Lever la restriction immédiatement — le client a expliqué", "bon": False,
+                     "fb": "❌ AB Verification est obligatoire. L'explication du client ne suffit pas."},
+                    {"t": "Demander au client d'aller en agence Wave", "bon": False,
+                     "fb": "❌ La device restriction se lève par téléphone via AB Verification — agence non requise."},
+                    {"t": "Transférer FO — cas FO", "bon": False,
+                     "fb": "❌ Device restriction = BO uniquement."},
+                ]
+            },
+            {
+                "client": "« Oui je réponds à vos questions. (AB Verification : 4 bonnes réponses sur 4) »",
+                "question": "AB Verification 4/4. Action suivante ?",
+                "choix": [
+                    {"t": "Lever la device restriction depuis Front — toutes les conditions sont réunies", "bon": True,
+                     "fb": "✅ AB Verification réussie + appel depuis bon numéro = lever la restriction directement."},
+                    {"t": "Demander quand même de venir en agence pour confirmer", "bon": False,
+                     "fb": "❌ AB Verification suffit. Pas d'agence requise."},
+                    {"t": "Créer un ticket et attendre une validation équipe", "bon": False,
+                     "fb": "❌ Non — AB Verification réussie permet une levée directe sans ticket."},
+                    {"t": "Exiger une pièce d'identité avant de lever", "bon": False,
+                     "fb": "❌ AB Verification remplace la pièce dans ce cas précis."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_b2w", "role": "FO",
+        "titre": "B2W — 'mon argent a disparu'",
+        "difficulte": "⭐⭐⭐",
+        "process_cible": "b2w",
+        "persona": "Mme Touré, 45 ans, paniquée, dit que son virement a 'disparu dans la nature'",
+        "intro": "📞 « Allô ! Mon argent a disparu ! J'ai envoyé 50 000 FCFA depuis ma banque vers Wave et c'est nulle part ! »",
+        "etapes": [
+            {
+                "client": "« J'ai fait le virement depuis Ecobank vers Wave il y a 3 heures. Mon solde Wave n'a pas bougé ! »",
+                "question": "Première action :",
+                "choix": [
+                    {"t": "Rechercher la transaction B2W dans Front par numéro client", "bon": True,
+                     "fb": "✅ Vérifier le statut exact de la transaction dans Front avant toute conclusion."},
+                    {"t": "Dire à la cliente que l'argent est probablement perdu", "bon": False,
+                     "fb": "❌ Jamais dire ça. C'est souvent un simple délai bancaire en cours."},
+                    {"t": "Créer immédiatement un Report B2W Problem", "bon": False,
+                     "fb": "❌ D'abord vérifier le statut dans Front — peut-être que la transaction est Pending."},
+                    {"t": "Orienter directement vers Ecobank", "bon": False,
+                     "fb": "❌ Pas encore vérifié côté Wave — d'abord Front."},
+                ]
+            },
+            {
+                "client": "« Vous voyez quelque chose ? »",
+                "question": "Front affiche la transaction avec statut 'Pending'. Que signifie ce statut et que dites-vous ?",
+                "choix": [
+                    {"t": "Transaction en cours de traitement — délai normal jusqu'à 72h ouvrées. Informer et rassurer la cliente", "bon": True,
+                     "fb": "✅ 'Pending' = en cours. Délai bancaire normal. Pas d'action requise pour l'instant."},
+                    {"t": "La transaction a échoué — créer un Report B2W Problem", "bon": False,
+                     "fb": "❌ 'Pending' ne signifie pas échec. Il faut attendre la finalisation."},
+                    {"t": "Rembourser immédiatement les 50 000 FCFA", "bon": False,
+                     "fb": "❌ Transaction en cours — remboursement seulement si statut 'Failed' ou 'Cancelled'."},
+                    {"t": "Escalader en urgence à l'équipe B2W", "bon": False,
+                     "fb": "❌ 3 heures en Pending est tout à fait normal. Escalade seulement après 72h sans résolution."},
+                ]
+            },
+            {
+                "client": "« Mais ça fait 3 heures déjà ! Et si ça échoue finalement ? Je perds mon argent ? »",
+                "question": "La cliente insiste sur les risques. Que lui expliquez-vous ?",
+                "choix": [
+                    {"t": "Délai max 72h ouvrées. En cas d'échec : 'Cancelled and Refunded' = remboursement automatique ou Report B2W Problem", "bon": True,
+                     "fb": "✅ Information complète et rassurante. Si échec confirmé, la procédure est claire."},
+                    {"t": "Promettre que l'argent arrivera dans l'heure", "bon": False,
+                     "fb": "❌ Jamais promettre un délai non garanti."},
+                    {"t": "Lui dire de rappeler dans 3 jours", "bon": False,
+                     "fb": "❌ Réponse vague — donner le délai précis et la procédure en cas d'échec."},
+                    {"t": "Créer un Report B2W Problem maintenant par précaution", "bon": False,
+                     "fb": "❌ Prématuré — la transaction est Pending. Report seulement si échec confirmé."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_agent_error", "role": "FO",
+        "titre": "Agent — 'il m'a arnaqué'",
+        "difficulte": "⭐⭐⭐",
+        "process_cible": "agent_error",
+        "persona": "M. Bamba, 33 ans, très en colère, parle vite, interrompt",
+        "intro": "📞 « Votre agent il m'a volé ! J'ai fait un retrait de 20 000 chez lui, il a validé et m'a rien donné ! Remboursez-moi MAINTENANT ! »",
+        "etapes": [
+            {
+                "client": "« L'agent, son numéro j'ai pas noté. C'était près du marché. Il était en bleu. »",
+                "question": "Le client est en colère, n'a pas le numéro agent. Première action :",
+                "choix": [
+                    {"t": "Calmer le client et vérifier d'abord si la transaction de retrait apparaît bien sur son compte Wave", "bon": True,
+                     "fb": "✅ Avant tout, confirmer que la transaction existe dans Front. Le numéro agent sera dans les détails."},
+                    {"t": "Rembourser immédiatement les 20 000 FCFA pour calmer la situation", "bon": False,
+                     "fb": "❌ Jamais rembourser sans investigation — c'est une fraude potentielle qui exige vérification."},
+                    {"t": "Créer un Report Agent Error Transaction sans rien vérifier", "bon": False,
+                     "fb": "❌ D'abord confirmer que la transaction existe dans Front."},
+                    {"t": "Dire au client d'appeler la police directement", "bon": False,
+                     "fb": "❌ Hors process — Wave a sa propre procédure d'investigation."},
+                ]
+            },
+            {
+                "client": "« Oui y'a bien écrit 'Retrait agent — 20 000 FCFA' sur mon compte. »",
+                "question": "Transaction confirmée dans Front. Le client ne connaît pas le numéro agent. Que faites-vous ?",
+                "choix": [
+                    {"t": "Récupérer le numéro agent dans les détails de la transaction Front, puis créer Agent Error Transaction", "bon": True,
+                     "fb": "✅ Le numéro agent est dans les détails de la transaction — pas besoin que le client le connaisse."},
+                    {"t": "Dire au client qu'on ne peut rien faire sans le numéro agent", "bon": False,
+                     "fb": "❌ Le numéro agent est visible dans les détails Front — ne pas bloquer la procédure."},
+                    {"t": "Rembourser directement puisque la transaction est prouvée", "bon": False,
+                     "fb": "❌ Transaction prouvée ≠ arnaque prouvée. Investigation nécessaire avant tout remboursement."},
+                    {"t": "Transférer BO — cas trop compliqué pour FO", "bon": False,
+                     "fb": "❌ FO gère Agent Error Transaction directement."},
+                ]
+            },
+            {
+                "client": "« Bon vous avez le numéro alors. Qu'est-ce qui va se passer maintenant ? Je récupère mon argent quand ? »",
+                "question": "Report Agent Error Transaction créé. Que dites-vous au client ?",
+                "choix": [
+                    {"t": "Dossier ouvert — investigation en cours. Délai selon résultat. Ne pas promettre de remboursement avant résolution", "bon": True,
+                     "fb": "✅ Correct. Investigation = délai. Ne jamais promettre un remboursement avant le résultat."},
+                    {"t": "Promettre un remboursement dans 24 heures", "bon": False,
+                     "fb": "❌ On ne peut pas promettre un remboursement avant la fin de l'investigation."},
+                    {"t": "Dire que l'agent sera sanctionné et arrêté", "bon": False,
+                     "fb": "❌ Hors périmètre Wave et non garanti — à ne jamais promettre."},
+                    {"t": "Fermer le dossier — le client n'est pas sûr de ses accusations", "bon": False,
+                     "fb": "❌ La transaction existe, le report est légitime. Investigation obligatoire."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_cie", "role": "FO",
+        "titre": "CIE — facture payée, lumière toujours coupée",
+        "difficulte": "⭐⭐",
+        "process_cible": "cie_prepayee",
+        "persona": "Mme Gnango, 55 ans, ton inquiet, parle avec accent fort, dit qu'elle est 'dans le noir'",
+        "intro": "📞 « Allô ! Je suis dans le noir ! J'ai payé ma facture CIE sur Wave ce matin et ma lumière elle est toujours coupée ! »",
+        "etapes": [
+            {
+                "client": "« J'ai payé 35 000 FCFA pour la CIE. Ça m'a dit 'paiement réussi' sur mon téléphone. »",
+                "question": "Action pour qualifier la demande :",
+                "choix": [
+                    {"t": "Consulter le compte dans Front pour confirmer la transaction CIE", "bon": True,
+                     "fb": "✅ Confirmer d'abord que le paiement existe bien dans Front — c'est la source de vérité."},
+                    {"t": "Dire à la cliente que la CIE ne reçoit pas toujours les paiements Wave le jour même", "bon": False,
+                     "fb": "❌ Information non vérifiée — d'abord consulter Front."},
+                    {"t": "Orienter directement vers la CIE au 20 25 35 35", "bon": False,
+                     "fb": "❌ D'abord vérifier la transaction côté Wave."},
+                    {"t": "Rembourser puisque la lumière n'est pas revenue", "bon": False,
+                     "fb": "❌ On ne rembourse pas sans vérification préalable."},
+                ]
+            },
+            {
+                "client": "« Qu'est-ce que vous voyez de votre côté ? »",
+                "question": "Front confirme : paiement CIE 35 000 FCFA statut 'Completed' — effectué il y a 4 heures. Que faites-vous ?",
+                "choix": [
+                    {"t": "Donner les références du reçu Wave à la cliente et l'orienter vers la CIE (20 25 35 35) avec ces références", "bon": True,
+                     "fb": "✅ Paiement Completed = Wave a transmis. C'est à la CIE de traiter. Communiquer les références."},
+                    {"t": "Rembourser les 35 000 FCFA — la lumière n'est pas revenue", "bon": False,
+                     "fb": "❌ Le paiement a bien été effectué côté Wave — pas de remboursement."},
+                    {"t": "Créer un Report Bill Pay Problem — délai anormal", "bon": False,
+                     "fb": "❌ Le paiement est Completed. Le report est pour les paiements non transmis, pas les délais CIE."},
+                    {"t": "Dire à la cliente d'attendre encore 24h — délai normal CIE", "bon": False,
+                     "fb": "❌ Ne pas inventer un délai. L'orienter vers la CIE avec les références du paiement."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_deblocage", "role": "BO",
+        "titre": "Déblocage — contexte vendredi soir / samedi",
+        "difficulte": "⭐⭐⭐",
+        "process_cible": "deblocage_compte",
+        "persona": "M. Yao, 41 ans, calme, appelle depuis son numéro Wave, pressé car il a besoin d'argent",
+        "intro": "📞 « Bonjour, j'ai bloqué mon compte hier soir parce que j'avais perdu mon téléphone. Je l'ai retrouvé ce matin. Je peux débloquer ? »",
+        "etapes": [
+            {
+                "client": "« J'ai appelé hier soir vers 21h pour bloquer. »",
+                "question": "Première vérification dans Front :",
+                "choix": [
+                    {"t": "Vérifier l'heure et le jour exact du blocage dans Front", "bon": True,
+                     "fb": "✅ L'heure et le jour du blocage déterminent si le déblocage est possible aujourd'hui."},
+                    {"t": "Débloquer immédiatement — le client a retrouvé son téléphone", "bon": False,
+                     "fb": "❌ Les conditions (heure, jour, AB Verification, flag Fraude) doivent toujours être vérifiées."},
+                    {"t": "Dire au client que c'est impossible — compte bloqué = ticket obligatoire", "bon": False,
+                     "fb": "❌ Faux — le déblocage direct est possible sous certaines conditions."},
+                    {"t": "Transférer à la Fraude automatiquement", "bon": False,
+                     "fb": "❌ Blocage volontaire = pas de motif Fraude a priori."},
+                ]
+            },
+            {
+                "client": "« Hier soir vendredi vers 21h. »",
+                "question": "Front confirme : blocage vendredi 21h. Aujourd'hui = samedi matin. Décision ?",
+                "choix": [
+                    {"t": "Déblocage possible — blocage vendredi, rappel samedi = jours différents. Lancer AB Verification", "bon": True,
+                     "fb": "✅ Exact. La règle 'samedi après 13h' s'applique uniquement au blocage fait un samedi. Vendredi→samedi = OK."},
+                    {"t": "Pas de déblocage — blocage vendredi soir + rappel samedi = attendre lundi", "bon": False,
+                     "fb": "❌ Règle incorrecte. Vendredi→samedi = jours différents = déblocage possible."},
+                    {"t": "Débloquer sans AB Verification — le client a fourni assez d'infos", "bon": False,
+                     "fb": "❌ AB Verification est obligatoire dans tous les cas, sans exception."},
+                    {"t": "Attendre 24h complètes depuis le blocage vendredi 21h", "bon": False,
+                     "fb": "❌ Il n'y a pas de règle '24h complètes' — c'est 'jour différent' qui compte."},
+                ]
+            },
+            {
+                "client": "« D'accord, je réponds à vos questions de sécurité. (4 bonnes réponses sur 4) »",
+                "question": "AB Verification 4/4 réussie. Que vérifiez-vous avant de débloquer ?",
+                "choix": [
+                    {"t": "Vérifier l'absence de flag Fraude sur le compte", "bon": True,
+                     "fb": "✅ Obligatoire — un flag Fraude empêche le déblocage direct même si AB Verification réussie."},
+                    {"t": "Débloquer directement — AB Verification suffit", "bon": False,
+                     "fb": "❌ Un flag Fraude présent interdirait le déblocage direct. Vérification obligatoire."},
+                    {"t": "Exiger une pièce d'identité en agence avant de débloquer", "bon": False,
+                     "fb": "❌ AB Verification remplace la pièce. Mais il faut quand même vérifier le flag Fraude."},
+                    {"t": "Appeler le manager pour validation avant d'agir", "bon": False,
+                     "fb": "❌ Pas nécessaire si conditions réunies et pas de flag Fraude."},
+                ]
+            },
+            {
+                "client": "« Mon compte c'est propre, j'ai jamais eu de problème avec Wave. »",
+                "question": "Pas de flag Fraude. AB Verification 4/4. Décision finale :",
+                "choix": [
+                    {"t": "Débloquer le compte — toutes les conditions sont réunies", "bon": True,
+                     "fb": "✅ Blocage vendredi + rappel samedi + AB 4/4 + pas de flag Fraude = déblocage autorisé."},
+                    {"t": "Créer quand même un ticket par précaution", "bon": False,
+                     "fb": "❌ Le ticket n'est requis que si les conditions échouent ou flag Fraude présent."},
+                    {"t": "Attendre l'accord du TL", "bon": False,
+                     "fb": "❌ Toutes les conditions sont réunies — le BO peut agir directement."},
+                    {"t": "Refuser — blocage vendredi soir reste ambigu", "bon": False,
+                     "fb": "❌ Aucune ambiguïté — vendredi→samedi = déblocage possible et toutes conditions OK."},
+                ]
+            },
+        ]
+    },
+    {
+        "id": "d_move_balance", "role": "BO",
+        "titre": "Move Balance — 'je veux fermer mon compte'",
+        "difficulte": "⭐⭐",
+        "process_cible": "move_balance",
+        "persona": "Mme Soro, 28 ans, a changé de numéro, veut 'récupérer son argent'",
+        "intro": "📞 « Bonjour, je vais changer de numéro de téléphone. Je veux fermer mon compte Wave et récupérer mes 45 000 FCFA. »",
+        "etapes": [
+            {
+                "client": "« Je veux tout récupérer sur mon nouveau numéro. C'est possible ? »",
+                "question": "Le client veut 'fermer son compte' et transférer sur un nouveau numéro. Quel process appliquer ?",
+                "choix": [
+                    {"t": "Move Balance — transférer le solde vers le nouveau numéro Wave", "bon": True,
+                     "fb": "✅ Move Balance est exactement fait pour ce cas — transfert de solde entre deux comptes Wave."},
+                    {"t": "Rembourser les 45 000 FCFA par virement bancaire", "bon": False,
+                     "fb": "❌ Ce n'est pas un remboursement — Move Balance est la procédure officielle."},
+                    {"t": "Lui dire de faire un virement ordinaire vers son nouveau numéro", "bon": False,
+                     "fb": "❌ Un virement ordinaire est possible mais Move Balance est la procédure officielle prévue."},
+                    {"t": "Fermer le compte manuellement depuis Front directement", "bon": False,
+                     "fb": "❌ Le solde doit d'abord être transféré via Move Balance avant toute fermeture."},
+                ]
+            },
+            {
+                "client": "« Super ! Vous pouvez le faire maintenant ? »",
+                "question": "Avant de lancer le Move Balance, que devez-vous vérifier obligatoirement ?",
+                "choix": [
+                    {"t": "AB Verification 4/4 + absence de double identité ou flag Fraude sur le compte", "bon": True,
+                     "fb": "✅ Move Balance exige AB Verification complète + vérification des obstacles bloquants."},
+                    {"t": "Juste vérifier le solde et transférer", "bon": False,
+                     "fb": "❌ AB Verification est obligatoire pour autoriser un Move Balance."},
+                    {"t": "Uniquement demander une pièce d'identité", "bon": False,
+                     "fb": "❌ AB Verification est requise, pas la pièce — plus vérification des obstacles."},
+                    {"t": "Rien — elle appelle depuis son numéro Wave, c'est suffisant", "bon": False,
+                     "fb": "❌ AB Verification toujours requise pour Move Balance, même depuis le bon numéro."},
+                ]
+            },
+            {
+                "client": "« (AB Verification 4/4 réussie). Mon nouveau numéro c'est 07 XX XX XX. »",
+                "question": "AB Verification 4/4, pas d'obstacle. Avant de transférer, que vérifiez-vous en dernier ?",
+                "choix": [
+                    {"t": "Confirmer que le numéro destinataire est un compte Wave actif dans Front", "bon": True,
+                     "fb": "✅ Toujours vérifier que le compte destinataire existe dans Wave avant de lancer le Move Balance."},
+                    {"t": "Transférer directement sans vérifier le numéro destinataire", "bon": False,
+                     "fb": "❌ Si le numéro n'est pas dans Wave, le Move Balance échoue ou part au mauvais endroit."},
+                    {"t": "Faire venir la cliente en agence pour finaliser", "bon": False,
+                     "fb": "❌ Move Balance se fait entièrement par téléphone — aucune agence requise."},
+                    {"t": "Attendre 48h avant de transférer pour sécurité", "bon": False,
+                     "fb": "❌ Aucun délai d'attente — dès que les conditions sont réunies, on procède."},
+                ]
+            },
+        ]
+    },
+]
+
+
 def render_cases(profile):
-    st.markdown('<div class="wave-card"><div class="big-title">📞 Cas pratiques du jour</div><p>Entraînement quotidien — scénarios réalistes tirés de tous les process. Même série pour toute l\'équipe ce jour-là.</p></div>', unsafe_allow_html=True)
+    import time
+    import streamlit.components.v1 as components
 
-    # ── Paramètres ──
-    col_role, col_mix = st.columns([2, 1])
-    with col_role:
-        role = st.selectbox("Profil", ["Front Office", "Back Office"],
-                            index=0 if profile == "Front Office" else 1,
-                            key="cases_role")
-    with col_mix:
-        mix = False
-        if role == "Back Office":
-            mix = st.checkbox("Mixer FO + BO", value=False,
-                              help="Les BO ont la compétence FO. Cocher pour inclure les cas FO.",
-                              key="cases_mix")
+    st.markdown(
+        '<div class="wave-card"><div class="big-title">📞 Simulation client</div>'
+        '<p>Incarnez le rep. Le client est confus, pressé, parfois inexact. '
+        'Posez les bonnes questions, appliquez le bon process — en moins de <b>3 minutes</b>.</p>'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-    day = st.date_input("Date des cas", value=date.today(), key="cases_date")
-    count = st.slider("Nombre de cas", 5, 20, 10, key="cases_count")
+    # ── Init session state ──
+    for k, v in [("sim_active", False), ("sim_id", None), ("sim_step", 0),
+                 ("sim_start", None), ("sim_choices", []), ("sim_done", False),
+                 ("sim_timeout", False)]:
+        if k not in st.session_state:
+            st.session_state[k] = v
 
-    # Seed journalier différent du quiz (offset +500)
-    offset = day.toordinal() - date.today().toordinal() + 500
-    if mix:
-        pool = BANK[:]
-    elif role == "Back Office":
-        pool = [x for x in BANK if x["role"] == "BO"]
-    else:
-        pool = [x for x in BANK if x["role"] == "FO"]
-
-    rnd = random.Random(day.toordinal() + (9 if role == "Back Office" else 5) + (17 if mix else 0))
-    shuffled = pool[:]
-    rnd.shuffle(shuffled)
-    # Diversité thématique
-    seen_themes = set(); diverse = []
-    for it in shuffled:
-        if it["theme"] not in seen_themes:
-            diverse.append(it); seen_themes.add(it["theme"])
-        if len(diverse) >= count: break
-    if len(diverse) < count:
-        diverse += [x for x in shuffled if x not in diverse][:count - len(diverse)]
-    items = diverse[:count]
-
-    profil_label = f"{role}{' + FO' if mix else ''}"
-    st.info(f"**Cas du {day.isoformat()}** — {profil_label}. Toute l'équipe a les mêmes cas ce jour-là.")
-
-    # ── Affichage des cas ──
-    answers = []
-    for i, it in enumerate(items, 1):
-        st.markdown(
-            f'<div class="wave-card"><h3>Cas {i} — {it["theme"]}</h3>'
-            f'<p>{it["case"]}</p><b>{it["q"]}</b></div>',
-            unsafe_allow_html=True
+    # ──────────────────────────────────────────────────────
+    # ÉCRAN DE SÉLECTION (simulation non démarrée)
+    # ──────────────────────────────────────────────────────
+    if not st.session_state.sim_active:
+        role = st.selectbox(
+            "Votre profil",
+            ["Front Office", "Back Office"],
+            index=0 if profile == "Front Office" else 1,
+            key="sim_role_sel"
         )
-        ans = st.radio("Réponse", it["opts"], key=f"cases_{day}_{role}_{mix}_{i}")
-        answers.append((it, ans))
+        pool = [d for d in DIALOGUES if d["role"] == role or role == "Back Office"]
+        options = {d["id"]: f"{d['titre']}  —  {d['difficulte']}" for d in pool}
+        sel_id = st.selectbox(
+            "Choisir un scénario",
+            list(options.keys()),
+            format_func=lambda x: options[x],
+            key="sim_sel"
+        )
+        sel = next(d for d in DIALOGUES if d["id"] == sel_id)
 
-    # ── Correction globale ──
-    if st.button("✅ Corriger les cas", type="primary", key="cases_correct"):
-        score = 0; weak = []
-        for i, (it, ans) in enumerate(answers, 1):
-            ok = it["opts"].index(ans) == it["a"]
-            score += ok
-            if not ok:
-                weak.append(it["theme"])
-            color = "✅" if ok else "❌"
-            st.markdown(f"**Cas {i} — {color} {it['theme']}**")
-            st.write(f"Bonne réponse : **{it['opts'][it['a']]}**")
-            st.caption(it["exp"])
+        st.markdown(f"""
+        <div class="wave-card">
+        <b>Persona client :</b> {sel['persona']}<br>
+        <b>Difficulté :</b> {sel['difficulte']}<br>
+        <b>Durée max :</b> 3 minutes — au-delà, le client raccroche.<br>
+        <b>Process cible :</b> <code>{sel['process_cible']}</code>
+        </div>
+        """, unsafe_allow_html=True)
 
-        pct = round(score / len(items) * 100)
-        st.divider()
-        if pct >= 80:
-            st.success(f"🎉 Score : {score}/{len(items)} — {pct}%")
+        if st.button("📞 Décrocher — Démarrer la simulation", type="primary", key="sim_start_btn"):
+            st.session_state.sim_active = True
+            st.session_state.sim_id = sel_id
+            st.session_state.sim_step = 0
+            st.session_state.sim_start = time.time()
+            st.session_state.sim_choices = []
+            st.session_state.sim_done = False
+            st.session_state.sim_timeout = False
+            st.rerun()
+        return
+
+    # ──────────────────────────────────────────────────────
+    # SIMULATION ACTIVE
+    # ──────────────────────────────────────────────────────
+    scenario = next(d for d in DIALOGUES if d["id"] == st.session_state.sim_id)
+    elapsed = time.time() - st.session_state.sim_start
+    remaining = max(0, 180 - int(elapsed))
+
+    # ── Timer visuel JS (compte à rebours live dans iframe) ──
+    if remaining > 60:
+        t_color = "#2ecc71"
+    elif remaining > 30:
+        t_color = "#e67e22"
+    else:
+        t_color = "#e74c3c"
+
+    components.html(f"""
+    <div style="background:#0f0f23;padding:6px 12px;border-radius:8px;display:inline-block;">
+      <span id="tm" style="font-size:1.6em;font-weight:900;color:{t_color};font-family:monospace;">
+        ⏱ {remaining // 60}:{remaining % 60:02d}
+      </span>
+      <span style="color:#888;font-size:0.85em;margin-left:10px;">restantes</span>
+    </div>
+    <script>
+    var r={remaining};
+    var el=document.getElementById('tm');
+    var iv=setInterval(function(){{
+      if(r<=0){{clearInterval(iv);el.innerHTML='⏰ TEMPS ÉCOULÉ';el.style.color='#e74c3c';return;}}
+      r--;
+      var m=Math.floor(r/60),s=r%60;
+      el.innerHTML='⏱ '+m+':'+(s<10?'0':'')+s;
+      el.style.color=r<=30?'#e74c3c':r<=60?'#e67e22':'#2ecc71';
+    }},1000);
+    </script>
+    """, height=55)
+
+    # ── Détection timeout côté Python ──
+    if elapsed >= 180 and not st.session_state.sim_done:
+        st.session_state.sim_done = True
+        st.session_state.sim_timeout = True
+
+    # ──────────────────────────────────────────────────────
+    # ÉCRAN DE RÉSULTATS
+    # ──────────────────────────────────────────────────────
+    if st.session_state.sim_done:
+        choices = st.session_state.sim_choices
+        correct = sum(1 for c in choices if c["bon"])
+        total_done = len(choices)
+        total_etapes = len(scenario["etapes"])
+        pct = round(correct / total_etapes * 100) if total_etapes > 0 else 0
+
+        if st.session_state.sim_timeout:
+            st.error("⏰ **Temps écoulé — le client a raccroché.** Vous n'avez pas pu résoudre le cas dans les 3 minutes.")
+        elif pct >= 80:
+            st.success(f"🎉 **Simulation réussie** — {correct}/{total_etapes} bons choix ({pct}%)")
         elif pct >= 60:
-            st.warning(f"📊 Score : {score}/{len(items)} — {pct}%")
+            st.warning(f"📊 **Partiellement réussi** — {correct}/{total_etapes} bons choix ({pct}%)")
         else:
-            st.error(f"📉 Score : {score}/{len(items)} — {pct}% — Process à retravailler")
+            st.error(f"📉 **Simulation échouée** — {correct}/{total_etapes} bons choix ({pct}%)")
 
-        if weak:
-            st.warning("⚠️ Process à renforcer : " + ", ".join(sorted(set(weak))))
+        st.markdown(f"**Process cible :** `{scenario['process_cible']}`")
+        st.divider()
+        st.markdown("### 📋 Récapitulatif de vos choix")
+
+        for i, c in enumerate(choices, 1):
+            icon = "✅" if c["bon"] else "❌"
+            st.markdown(f"**Étape {i} — {icon}**")
+            st.write(f"Votre choix : *{c['texte']}*")
+            st.caption(c["fb"])
+
+        if st.session_state.sim_timeout and total_done < total_etapes:
+            st.info(f"Il restait {total_etapes - total_done} étape(s) non traitée(s).")
+
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Rejouer ce scénario", key="sim_replay"):
+                st.session_state.sim_step = 0
+                st.session_state.sim_start = time.time()
+                st.session_state.sim_choices = []
+                st.session_state.sim_done = False
+                st.session_state.sim_timeout = False
+                st.rerun()
+        with col2:
+            if st.button("📋 Choisir un autre scénario", key="sim_new"):
+                st.session_state.sim_active = False
+                st.rerun()
+        return
+
+    # ──────────────────────────────────────────────────────
+    # ÉTAPE EN COURS
+    # ──────────────────────────────────────────────────────
+    step_idx = st.session_state.sim_step
+    etapes = scenario["etapes"]
+
+    # Intro (premier appel uniquement)
+    if step_idx == 0:
+        st.markdown(f"""
+        <div class="wave-card" style="border-left:4px solid #e74c3c;">
+        <b>📞 Appel entrant</b><br>
+        <small>Persona : {scenario['persona']}</small><br><br>
+        <b>{scenario['intro']}</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+    etape = etapes[step_idx]
+
+    st.markdown(f"""
+    <div class="wave-card" style="border-left:4px solid #3498db;margin-top:10px;">
+    <b>💬 Client :</b> {etape['client']}
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"**{etape['question']}**")
+
+    choix_textes = [c["t"] for c in etape["choix"]]
+    rep = st.radio("Votre réponse :", choix_textes,
+                   key=f"sim_{st.session_state.sim_id}_{step_idx}")
+
+    st.progress((step_idx) / len(etapes),
+                text=f"Étape {step_idx + 1} / {len(etapes)}")
+
+    if st.button("➡ Valider et continuer", type="primary",
+                 key=f"sim_val_{step_idx}"):
+        # Vérifier timeout au moment du clic
+        elapsed2 = time.time() - st.session_state.sim_start
+        if elapsed2 >= 180:
+            st.session_state.sim_done = True
+            st.session_state.sim_timeout = True
+            st.rerun()
+            return
+
+        # Enregistrer le choix
+        idx_c = choix_textes.index(rep)
+        c = etape["choix"][idx_c]
+        st.session_state.sim_choices.append({
+            "texte": c["t"], "bon": c["bon"], "fb": c["fb"]
+        })
+
+        # Avancer ou terminer
+        if step_idx + 1 >= len(etapes):
+            st.session_state.sim_done = True
+        else:
+            st.session_state.sim_step += 1
+        st.rerun()
 
 def render_tests():
     st.markdown('<div class="wave-card"><div class="big-title">🧪 Tests métier V7</div><p>Cas critiques qui doivent rester cohérents avant tout déploiement.</p></div>', unsafe_allow_html=True)
