@@ -1920,7 +1920,7 @@ def render_cases(profile):
             index=0 if profile == "Front Office" else 1,
             key="sim_role_sel"
         )
-        pool = [d for d in DIALOGUES if d["role"] == role or role == "Back Office"]
+        pool = DIALOGUES if role == "Back Office" else [d for d in DIALOGUES if d["role"] == "FO"]
         options = {d["id"]: f"{d['titre']}  —  {d['difficulte']}" for d in pool}
         sel_id = st.selectbox(
             "Choisir un scénario",
