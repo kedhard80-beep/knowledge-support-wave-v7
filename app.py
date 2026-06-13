@@ -1892,56 +1892,64 @@ DIALOGUES = [
 ]
 
 
-def render_cases(profile):
+def render_cases(profile, rep_name):
     import time
 
     st.markdown(
-        '<div class="wave-card"><div class="big-title">📞 Simulation client</div>'
-        '<p>Incarnez le rep. Le client est confus, pressé, parfois inexact. '
-        'Posez les bonnes questions, appliquez le bon process — en moins de <b>3 minutes</b>.</p>'
+        '<div class="wave-card"><div class="big-title">📞 Cas pratique de la semaine</div>'
+        '<p>Un appel client réel vous attend. Posez les bonnes questions, appliquez le bon process — en moins de <b>3 minutes</b>.<br>'
+        '<small>Le même cas pour toute l\'équipe cette semaine. Le process n\'est révélé qu\'à la fin.</small></p>'
         '</div>',
         unsafe_allow_html=True
     )
 
+    # ── Vérification nom du rep ──
+    if not rep_name:
+        st.warning("⚠️ Entrez votre nom dans la barre latérale avant de démarrer.")
+        return
+
     # ── Init session state ──
     for k, v in [("sim_active", False), ("sim_id", None), ("sim_step", 0),
                  ("sim_start", None), ("sim_choices", []), ("sim_done", False),
-                 ("sim_timeout", False)]:
+                 ("sim_timeout", False), ("sim_week", None)]:
         if k not in st.session_state:
             st.session_state[k] = v
 
+    # ── Sélection de la semaine (même logique que le quiz) ──
+    current_week = get_week_of_2026()
+    week = st.selectbox("Semaine", list(range(1, 53)),
+                        index=current_week - 1,
+                        format_func=week_label,
+                        key="sim_week_sel")
+
+    # ── Scénario de la semaine — déterministe, caché du rep ──
+    # FO : scénarios FO uniquement. BO : tous les scénarios.
+    if profile == "Back Office":
+        pool_sim = DIALOGUES
+    else:
+        pool_sim = [d for d in DIALOGUES if d["role"] == "FO"]
+    rnd_sim = random.Random(2026 * 1000 + week + 77)
+    weekly_scenario = rnd_sim.choice(pool_sim)
+
+    st.info(f"**{week_label(week)}** — Un appel vous attend. Cliquez pour décrocher.")
+
     # ──────────────────────────────────────────────────────
-    # ÉCRAN DE SÉLECTION (simulation non démarrée)
+    # ÉCRAN DE DÉMARRAGE (simulation non démarrée)
     # ──────────────────────────────────────────────────────
     if not st.session_state.sim_active:
-        role = st.selectbox(
-            "Votre profil",
-            ["Front Office", "Back Office"],
-            index=0 if profile == "Front Office" else 1,
-            key="sim_role_sel"
-        )
-        pool = DIALOGUES if role == "Back Office" else [d for d in DIALOGUES if d["role"] == "FO"]
-        options = {d["id"]: f"{d['titre']}  —  {d['difficulte']}" for d in pool}
-        sel_id = st.selectbox(
-            "Choisir un scénario",
-            list(options.keys()),
-            format_func=lambda x: options[x],
-            key="sim_sel"
-        )
-        sel = next(d for d in DIALOGUES if d["id"] == sel_id)
-
-        st.markdown(f"""
+        st.markdown("""
         <div class="wave-card">
-        <b>Persona client :</b> {sel['persona']}<br>
-        <b>Difficulté :</b> {sel['difficulte']}<br>
-        <b>Durée max :</b> 3 minutes — au-delà, le client raccroche.<br>
-        <b>Process cible :</b> <code>{sel['process_cible']}</code>
+        ☎️ <b>Un client vous appelle.</b><br>
+        Vous ne savez pas encore de quoi il s'agit.<br>
+        Lisez attentivement chaque message du client et choisissez la bonne action.<br>
+        <b>Durée max : 3 minutes.</b> Au-delà, le client raccroche.
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("📞 Décrocher — Démarrer la simulation", type="primary", key="sim_start_btn"):
+        if st.button("📞 Décrocher", type="primary", key="sim_start_btn"):
             st.session_state.sim_active = True
-            st.session_state.sim_id = sel_id
+            st.session_state.sim_id = weekly_scenario["id"]
+            st.session_state.sim_week = week
             st.session_state.sim_step = 0
             st.session_state.sim_start = time.time()
             st.session_state.sim_choices = []
@@ -1949,6 +1957,11 @@ def render_cases(profile):
             st.session_state.sim_timeout = False
             st.rerun()
         return
+
+    # ── Si la semaine change en cours de session, réinitialiser ──
+    if st.session_state.sim_week != week and not st.session_state.sim_done:
+        st.session_state.sim_active = False
+        st.rerun()
 
     # ──────────────────────────────────────────────────────
     # SIMULATION ACTIVE
@@ -1994,7 +2007,8 @@ def render_cases(profile):
         else:
             st.error(f"📉 **Simulation échouée** — {correct}/{total_etapes} bons choix ({pct}%)")
 
-        st.markdown(f"**Process cible :** `{scenario['process_cible']}`")
+        # Révélation du process seulement après la fin
+        st.markdown(f"**Process concerné :** `{scenario['process_cible']}` — *{scenario['titre']}*")
         st.divider()
         st.markdown("### 📋 Récapitulatif de vos choix")
 
@@ -2008,19 +2022,13 @@ def render_cases(profile):
             st.info(f"Il restait {total_etapes - total_done} étape(s) non traitée(s).")
 
         st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Rejouer ce scénario", key="sim_replay"):
-                st.session_state.sim_step = 0
-                st.session_state.sim_start = time.time()
-                st.session_state.sim_choices = []
-                st.session_state.sim_done = False
-                st.session_state.sim_timeout = False
-                st.rerun()
-        with col2:
-            if st.button("📋 Choisir un autre scénario", key="sim_new"):
-                st.session_state.sim_active = False
-                st.rerun()
+        if st.button("🔄 Recommencer ce cas", key="sim_replay"):
+            st.session_state.sim_step = 0
+            st.session_state.sim_start = time.time()
+            st.session_state.sim_choices = []
+            st.session_state.sim_done = False
+            st.session_state.sim_timeout = False
+            st.rerun()
         return
 
     # ──────────────────────────────────────────────────────
@@ -2029,12 +2037,11 @@ def render_cases(profile):
     step_idx = st.session_state.sim_step
     etapes = scenario["etapes"]
 
-    # Intro (premier appel uniquement)
+    # Intro (premier appel uniquement) — pas de titre ni persona visible
     if step_idx == 0:
         st.markdown(f"""
         <div class="wave-card" style="border-left:4px solid #e74c3c;">
-        <b>📞 Appel entrant</b><br>
-        <small>Persona : {scenario['persona']}</small><br><br>
+        <b>📞 Appel entrant</b><br><br>
         <b>{scenario['intro']}</b>
         </div>
         """, unsafe_allow_html=True)
@@ -2284,6 +2291,6 @@ st.sidebar.write(f"**135 process Wave · {len(QUALIFY_OPTIONS)} motorisés · {l
 if module == "Assistant métier": render_assistant(profile)
 elif module == "🎓 Quiz hebdomadaire": render_quiz(profile, rep_name)
 elif module == "📊 Classement": render_ranking()
-elif module == "Cas pratiques": render_cases(profile)
+elif module == "Cas pratiques": render_cases(profile, rep_name)
 elif module == "Tests métier V7": render_tests()
 else: render_admin(profile)
