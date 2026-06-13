@@ -1894,7 +1894,6 @@ DIALOGUES = [
 
 def render_cases(profile):
     import time
-    import streamlit.components.v1 as components
 
     st.markdown(
         '<div class="wave-card"><div class="big-title">📞 Simulation client</div>'
@@ -1958,33 +1957,18 @@ def render_cases(profile):
     elapsed = time.time() - st.session_state.sim_start
     remaining = max(0, 180 - int(elapsed))
 
-    # ── Timer visuel JS (compte à rebours live dans iframe) ──
+    # ── Timer visuel natif Streamlit ──
     if remaining > 60:
-        t_color = "#2ecc71"
+        timer_icon = "🟢"
     elif remaining > 30:
-        t_color = "#e67e22"
+        timer_icon = "🟠"
     else:
-        t_color = "#e74c3c"
+        timer_icon = "🔴"
 
-    components.html(f"""
-    <div style="background:#0f0f23;padding:6px 12px;border-radius:8px;display:inline-block;">
-      <span id="tm" style="font-size:1.6em;font-weight:900;color:{t_color};font-family:monospace;">
-        ⏱ {remaining // 60}:{remaining % 60:02d}
-      </span>
-      <span style="color:#888;font-size:0.85em;margin-left:10px;">restantes</span>
-    </div>
-    <script>
-    var r={remaining};
-    var el=document.getElementById('tm');
-    var iv=setInterval(function(){{
-      if(r<=0){{clearInterval(iv);el.innerHTML='⏰ TEMPS ÉCOULÉ';el.style.color='#e74c3c';return;}}
-      r--;
-      var m=Math.floor(r/60),s=r%60;
-      el.innerHTML='⏱ '+m+':'+(s<10?'0':'')+s;
-      el.style.color=r<=30?'#e74c3c':r<=60?'#e67e22':'#2ecc71';
-    }},1000);
-    </script>
-    """, height=55)
+    m_left = remaining // 60
+    s_left = remaining % 60
+    st.metric(label="⏱ Temps restant", value=f"{m_left}:{s_left:02d}",
+              delta=f"{timer_icon} {'En cours' if remaining > 0 else 'Temps écoulé'}")
 
     # ── Détection timeout côté Python ──
     if elapsed >= 180 and not st.session_state.sim_done:
