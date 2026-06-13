@@ -23,6 +23,7 @@ def save_custom(data):
 
 # ─── Stockage des résultats quiz ───
 RESULTS_FILE = os.path.join(os.path.dirname(__file__), "quiz_results.json")
+SIM_RESULTS_FILE = os.path.join(os.path.dirname(__file__), "sim_results.json")
 
 def load_results():
     if os.path.exists(RESULTS_FILE):
@@ -37,6 +38,21 @@ def save_result(entry):
     data = load_results()
     data["results"].append(entry)
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_sim_results():
+    if os.path.exists(SIM_RESULTS_FILE):
+        try:
+            with open(SIM_RESULTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"results": []}
+    return {"results": []}
+
+def save_sim_result(entry):
+    data = load_sim_results()
+    data["results"].append(entry)
+    with open(SIM_RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 _custom = load_custom()
@@ -1370,91 +1386,159 @@ def render_quiz(profile, rep_name):
 
 def render_ranking():
     import io, csv
-    st.markdown('<div class="wave-card"><div class="big-title">📊 Classement & Rapports</div><p>Résultats des quiz par semaine — classement équipe, process faibles, export.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="wave-card"><div class="big-title">📊 Classement & Rapports</div><p>Résultats des quiz et simulations — classement équipe, process faibles, export CSV.</p></div>', unsafe_allow_html=True)
 
-    data = load_results()
-    results = data.get("results", [])
+    tab_quiz, tab_sim = st.tabs(["🎓 Quiz hebdomadaire", "📞 Simulations client"])
 
-    if not results:
-        st.info("Aucun résultat enregistré. Les résultats apparaissent ici après la correction du quiz.")
-        return
+    # ══════════════════════════════════════════════════
+    # ONGLET QUIZ
+    # ══════════════════════════════════════════════════
+    with tab_quiz:
+        data = load_results()
+        results = data.get("results", [])
 
-    weeks_available = sorted(set(r["week"] for r in results), reverse=True)
-    week_sel = st.selectbox("Semaine à afficher", weeks_available, format_func=week_label)
-    week_results = [r for r in results if r["week"] == week_sel]
+        if not results:
+            st.info("Aucun résultat enregistré. Les résultats apparaissent ici après la correction du quiz.")
+        else:
+            weeks_available = sorted(set(r["week"] for r in results), reverse=True)
+            week_sel = st.selectbox("Semaine à afficher", weeks_available,
+                                    format_func=week_label, key="rank_week_sel")
+            week_results = [r for r in results if r["week"] == week_sel]
 
-    # Meilleur score par rep pour cette semaine
-    best = {}
-    for r in week_results:
-        rep = r["rep"]
-        if rep not in best or r["pct"] > best[rep]["pct"]:
-            best[rep] = r
-    ranking = sorted(best.values(), key=lambda x: x["pct"], reverse=True)
+            best = {}
+            for r in week_results:
+                rp = r["rep"]
+                if rp not in best or r["pct"] > best[rp]["pct"]:
+                    best[rp] = r
+            ranking = sorted(best.values(), key=lambda x: x["pct"], reverse=True)
 
-    # ── Classement
-    st.markdown(f"### 🏆 Classement — {week_label(week_sel)}")
-    medals = ["🥇", "🥈", "🥉"]
-    for i, r in enumerate(ranking):
-        med = medals[i] if i < 3 else f"{i+1}."
-        pct = r["pct"]
-        bar = "🟩" * (pct // 10) + "⬜" * (10 - pct // 10)
-        lvl = "✅ En maîtrise" if pct >= 80 else "⚠️ En progression" if pct >= 60 else "❌ À renforcer"
-        st.markdown(f"**{med} {r['rep']}** — {r['score']}/{r['total']} ({pct}%) — {r['profile']}  \n{bar} {lvl}")
+            st.markdown(f"### 🏆 Classement — {week_label(week_sel)}")
+            medals = ["🥇", "🥈", "🥉"]
+            for i, r in enumerate(ranking):
+                med = medals[i] if i < 3 else f"{i+1}."
+                pct = r["pct"]
+                bar = "🟩" * (pct // 10) + "⬜" * (10 - pct // 10)
+                lvl = "✅ En maîtrise" if pct >= 80 else "⚠️ En progression" if pct >= 60 else "❌ À renforcer"
+                st.markdown(f"**{med} {r['rep']}** — {r['score']}/{r['total']} ({pct}%) — {r['profile']}  \n{bar} {lvl}")
 
-    st.divider()
+            st.divider()
+            st.markdown("### 📉 Process les plus échoués cette semaine")
+            theme_fails = {}
+            theme_total = {}
+            for r in week_results:
+                for d in r.get("detail", []):
+                    t = d["theme"]
+                    theme_total[t] = theme_total.get(t, 0) + 1
+                    if not d["correct"]:
+                        theme_fails[t] = theme_fails.get(t, 0) + 1
 
-    # ── Process les plus échoués
-    st.markdown("### 📉 Process les plus échoués cette semaine")
-    theme_fails = {}
-    theme_total = {}
-    for r in week_results:
-        for d in r.get("detail", []):
-            t = d["theme"]
-            theme_total[t] = theme_total.get(t, 0) + 1
-            if not d["correct"]:
-                theme_fails[t] = theme_fails.get(t, 0) + 1
+            if theme_fails:
+                for theme, fails in sorted(theme_fails.items(), key=lambda x: x[1], reverse=True)[:10]:
+                    total_q = theme_total.get(theme, fails)
+                    pct_fail = round(fails / total_q * 100)
+                    bar = "🔴" if pct_fail >= 60 else "🟠" if pct_fail >= 30 else "🟡"
+                    st.write(f"{bar} **{theme}** — {fails} erreur(s) sur {total_q} ({pct_fail}% d'échec)")
+            else:
+                st.success("Aucune erreur cette semaine !")
 
-    if theme_fails:
-        sorted_fails = sorted(theme_fails.items(), key=lambda x: x[1], reverse=True)
-        for theme, fails in sorted_fails[:10]:
-            total_q = theme_total.get(theme, fails)
-            pct_fail = round(fails / total_q * 100)
-            bar = "🔴" if pct_fail >= 60 else "🟠" if pct_fail >= 30 else "🟡"
-            st.write(f"{bar} **{theme}** — {fails} erreur(s) sur {total_q} tentative(s) ({pct_fail}% d'échec)")
-    else:
-        st.success("Aucune erreur cette semaine !")
+            st.divider()
+            st.markdown("### 📥 Export")
+            col1, col2 = st.columns(2)
+            with col1:
+                buf_w = io.StringIO()
+                ww = csv.writer(buf_w)
+                ww.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%", "Process faibles"])
+                for r in sorted(week_results, key=lambda x: x["pct"], reverse=True):
+                    ww.writerow([r["rep"], r["week"], r["date"], r["profile"],
+                                 r["score"], r["total"], r["pct"], ", ".join(r.get("weak", []))])
+                st.download_button(f"📥 Semaine {week_sel} (CSV)",
+                                   buf_w.getvalue().encode("utf-8"),
+                                   f"quiz_semaine{week_sel:02d}.csv", "text/csv", key="dl_week")
+            with col2:
+                buf_all = io.StringIO()
+                wa = csv.writer(buf_all)
+                wa.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%", "Process faibles"])
+                for r in sorted(results, key=lambda x: (x["week"], x["rep"])):
+                    wa.writerow([r["rep"], r["week"], r["date"], r["profile"],
+                                 r["score"], r["total"], r["pct"], ", ".join(r.get("weak", []))])
+                st.download_button("📥 Tous les résultats (CSV)",
+                                   buf_all.getvalue().encode("utf-8"),
+                                   "quiz_resultats_complets.csv", "text/csv", key="dl_all")
 
-    st.divider()
+    # ══════════════════════════════════════════════════
+    # ONGLET SIMULATIONS
+    # ══════════════════════════════════════════════════
+    with tab_sim:
+        sim_data = load_sim_results()
+        sim_results = sim_data.get("results", [])
 
-    # ── Export global
-    st.markdown("### 📥 Export des résultats")
-    col1, col2 = st.columns(2)
-    with col1:
-        # Export semaine sélectionnée
-        buf_w = io.StringIO()
-        ww = csv.writer(buf_w)
-        ww.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%", "Process faibles"])
-        for r in sorted(week_results, key=lambda x: x["pct"], reverse=True):
-            ww.writerow([r["rep"], r["week"], r["date"], r["profile"],
-                         r["score"], r["total"], r["pct"], ", ".join(r.get("weak", []))])
-        st.download_button(
-            f"📥 Semaine {week_sel} (CSV)",
-            buf_w.getvalue().encode("utf-8"),
-            f"quiz_semaine{week_sel:02d}.csv", "text/csv", key="dl_week"
-        )
-    with col2:
-        # Export tous résultats
-        buf_all = io.StringIO()
-        wa = csv.writer(buf_all)
-        wa.writerow(["Rep", "Semaine", "Date", "Profil", "Score", "Total", "%", "Process faibles"])
-        for r in sorted(results, key=lambda x: (x["week"], x["rep"])):
-            wa.writerow([r["rep"], r["week"], r["date"], r["profile"],
-                         r["score"], r["total"], r["pct"], ", ".join(r.get("weak", []))])
-        st.download_button(
-            "📥 Tous les résultats (CSV)",
-            buf_all.getvalue().encode("utf-8"),
-            "quiz_resultats_complets.csv", "text/csv", key="dl_all"
-        )
+        if not sim_results:
+            st.info("Aucune simulation enregistrée. Les résultats apparaissent ici après chaque cas pratique complété.")
+        else:
+            sim_weeks = sorted(set(r["week"] for r in sim_results), reverse=True)
+            sim_week_sel = st.selectbox("Semaine à afficher", sim_weeks,
+                                        format_func=week_label, key="sim_rank_week_sel")
+            sw_results = [r for r in sim_results if r["week"] == sim_week_sel]
+
+            st.markdown(f"### 🏆 Classement simulations — {week_label(sim_week_sel)}")
+            medals = ["🥇", "🥈", "🥉"]
+            sw_sorted = sorted(sw_results, key=lambda x: x["pct"], reverse=True)
+            for i, r in enumerate(sw_sorted):
+                med = medals[i] if i < 3 else f"{i+1}."
+                pct = r["pct"]
+                bar = "🟩" * (pct // 10) + "⬜" * (10 - pct // 10)
+                timeout_tag = " ⏰ timeout" if r.get("timeout") else ""
+                lvl = "✅ Résolu" if pct >= 80 else "⚠️ Partiel" if pct >= 60 else "❌ Échoué"
+                st.markdown(
+                    f"**{med} {r['rep']}** — {r['score']}/{r['total']} ({pct}%){timeout_tag} — "
+                    f"`{r['process_cible']}`  \n{bar} {lvl}"
+                )
+
+            st.divider()
+
+            # Scénarios avec le plus d'échecs
+            st.markdown("### 📉 Cas les plus difficiles")
+            proc_fails = {}
+            proc_total = {}
+            for r in sw_results:
+                p = r["process_cible"]
+                proc_total[p] = proc_total.get(p, 0) + 1
+                if r["pct"] < 80:
+                    proc_fails[p] = proc_fails.get(p, 0) + 1
+            if proc_fails:
+                for p, fails in sorted(proc_fails.items(), key=lambda x: x[1], reverse=True):
+                    tot = proc_total.get(p, fails)
+                    pct_f = round(fails / tot * 100)
+                    bar = "🔴" if pct_f >= 60 else "🟠" if pct_f >= 30 else "🟡"
+                    st.write(f"{bar} `{p}` — {fails} rep(s) en difficulté sur {tot} ({pct_f}%)")
+            else:
+                st.success("Tous les reps ont réussi cette semaine !")
+
+            st.divider()
+            st.markdown("### 📥 Export")
+            col1, col2 = st.columns(2)
+            with col1:
+                buf_sw = io.StringIO()
+                ws = csv.writer(buf_sw)
+                ws.writerow(["Rep", "Semaine", "Date", "Profil", "Scénario", "Process", "Score", "Total", "%", "Timeout"])
+                for r in sw_sorted:
+                    ws.writerow([r["rep"], r["week"], r["date"], r["profile"],
+                                 r["scenario_titre"], r["process_cible"],
+                                 r["score"], r["total"], r["pct"], r.get("timeout", False)])
+                st.download_button(f"📥 Simulations S{sim_week_sel:02d} (CSV)",
+                                   buf_sw.getvalue().encode("utf-8"),
+                                   f"sim_semaine{sim_week_sel:02d}.csv", "text/csv", key="dl_sim_week")
+            with col2:
+                buf_sa = io.StringIO()
+                wsa = csv.writer(buf_sa)
+                wsa.writerow(["Rep", "Semaine", "Date", "Profil", "Scénario", "Process", "Score", "Total", "%", "Timeout"])
+                for r in sorted(sim_results, key=lambda x: (x["week"], x["rep"])):
+                    wsa.writerow([r["rep"], r["week"], r["date"], r["profile"],
+                                  r["scenario_titre"], r["process_cible"],
+                                  r["score"], r["total"], r["pct"], r.get("timeout", False)])
+                st.download_button("📥 Toutes les simulations (CSV)",
+                                   buf_sa.getvalue().encode("utf-8"),
+                                   "sim_resultats_complets.csv", "text/csv", key="dl_sim_all")
 
 # ── Scénarios de simulation client (dialogue interactif chronométré) ─────────
 
@@ -1911,7 +1995,7 @@ def render_cases(profile, rep_name):
     # ── Init session state ──
     for k, v in [("sim_active", False), ("sim_id", None), ("sim_step", 0),
                  ("sim_start", None), ("sim_choices", []), ("sim_done", False),
-                 ("sim_timeout", False), ("sim_week", None)]:
+                 ("sim_timeout", False), ("sim_week", None), ("sim_saved", False)]:
         if k not in st.session_state:
             st.session_state[k] = v
 
@@ -2021,14 +2105,30 @@ def render_cases(profile, rep_name):
         if st.session_state.sim_timeout and total_done < total_etapes:
             st.info(f"Il restait {total_etapes - total_done} étape(s) non traitée(s).")
 
-        st.divider()
-        if st.button("🔄 Recommencer ce cas", key="sim_replay"):
-            st.session_state.sim_step = 0
-            st.session_state.sim_start = time.time()
-            st.session_state.sim_choices = []
-            st.session_state.sim_done = False
-            st.session_state.sim_timeout = False
-            st.rerun()
+        # ── Sauvegarde automatique du résultat ──
+        sim_entry = {
+            "rep": rep_name,
+            "week": week,
+            "date": date.today().isoformat(),
+            "profile": profile,
+            "scenario_id": scenario["id"],
+            "scenario_titre": scenario["titre"],
+            "process_cible": scenario["process_cible"],
+            "score": correct,
+            "total": total_etapes,
+            "pct": pct,
+            "timeout": st.session_state.sim_timeout,
+            "detail": [{"texte": c["texte"], "bon": c["bon"]} for c in choices]
+        }
+        if not st.session_state.get("sim_saved"):
+            try:
+                save_sim_result(sim_entry)
+                st.session_state.sim_saved = True
+            except Exception:
+                pass
+
+        st.success("✅ Résultat enregistré dans le rapport équipe.")
+        st.info("Résultat final — consultation dans **Classement & Rapports** onglet Simulations.")
         return
 
     # ──────────────────────────────────────────────────────
