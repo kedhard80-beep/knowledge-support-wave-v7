@@ -172,6 +172,9 @@ KEYWORDS = [
     ("agent_bank_rebalance", ["reequilibrage", "banque"], 105),
     ("agent_bank_rebalance", ["agent", "reequilibrer", "banque"], 105),
     ("agent_bank_rebalance", ["agent", "virement", "bancaire"], 105),
+    ("agent_bank_rebalance", ["reequilibrage", "bordereau"], 105),
+    ("agent_bank_rebalance", ["ci-liquidity"], 100),
+    ("agent_bank_rebalance", ["bordereau", "agent", "fonds"], 105),
     # ── Facturiers / partenaires ──
     ("canal", ["canal"], 95),
     ("cie_sodeci", ["sodeci"], 90),
@@ -190,7 +193,7 @@ KEYWORDS = [
     ("b2w", ["bank", "wallet"], 90),
     ("b2w", ["virement", "banque", "wave"], 90),
     ("b2w", ["virement", "banque"], 85),
-    ("b2w", ["wave", "banque", "arrive"], 85),
+    ("b2w", ["transfert", "banque", "wave"], 90),
     ("b2w", ["wave", "to", "bank"], 90),
     ("merchant_creation", ["devenir", "marchand"], 95),
     ("merchant_creation", ["creation", "marchand"], 95),
@@ -206,6 +209,9 @@ KEYWORDS = [
     ("refund", ["plusieurs", "remboursement"], 100),
     ("refund", ["plusieurs", "remboursements"], 100),
     ("refund", ["refund"], 85),
+    ("refund", ["refunding"], 90),
+    ("refund", ["refunding", "dispute"], 100),
+    ("refund", ["dispute", "remboursement"], 95),
     # ── Solde / coffre ──
     ("move_balance", ["move", "balance"], 100),
     ("move_balance", ["mouvement", "balance"], 100),
@@ -223,7 +229,14 @@ KEYWORDS = [
     ("reset_pin", ["reset", "pin"], 90),
     ("reset_pin", ["changer", "pin"], 90),
     ("device_restriction", ["device", "restriction"], 95),
-    ("device_restriction", ["nouveau", "telephone"], 80),
+    ("device_restriction", ["nouveau", "telephone"], 85),
+    ("device_restriction", ["change", "telephone"], 90),
+    ("device_restriction", ["changement", "telephone"], 90),
+    ("device_restriction", ["change", "appareil"], 90),
+    ("device_restriction", ["nouveau", "appareil"], 85),
+    ("device_restriction", ["changement", "appareil"], 90),
+    ("device_restriction", ["change", "telephone", "banque"], 105),
+    ("device_restriction", ["telephone", "perdu", "banque"], 100),
     # ── Identification / double identité ──
     ("identification", ["double", "ident"], 100),
     ("identification", ["double", "identite"], 100),
@@ -333,6 +346,16 @@ def classify(text):
         obstacles.append("double_identite")
     if "fraude" in t or "fraud" in t:
         obstacles.append("blocage_fraude")
+    if any(x in t for x in ["relance", "ticket ouvert", "ticket deja ouvert", "ticket est ouvert",
+                              "ticket existe", "suivi ticket", "suivi de ma reclamation",
+                              "suivi reclamation", "suivi de reclamation",
+                              "suite de ma requete", "suite de sa requete", "suite du ticket",
+                              "ticket en cours", "deja cree", "deja un ticket",
+                              "ticket a ete ouvert", "ticket a deja ete", "ticket deja cree",
+                              "problem ouvert", "problem en cours", "problem deja",
+                              "dossier ouvert", "dossier en cours", "dossier deja",
+                              "reclamation ouverte", "reclamation en cours"]):
+        obstacles.append("ticket_existant")
     if "mineur" in t or "17 ans" in t or "16 ans" in t:
         obstacles.append("mineur")
     if "agent" in t and ("piece" in t or "id" in t) and ("rej" in t or "reject" in t):
@@ -439,12 +462,14 @@ SIMPLE_DECISIONS = {
     "agent_bank_rebalance": ("Rééquilibrage par banque", "Après bordereau soumis via app + 3h sans UV : demande dans ci-liquidity avec template montant/agent/banque/date."),
     "parental": ("Autorisation parentale", "Mineur KYC2 a besoin d’autorisation parentale. Envoyer liens ToolCI mineur/parent. Si impossible et client accepte, rejet de pièce après identification complète et type de pièce."),
     # ── Carte Visa Wave ──
-    "visa_fraude":        ("Carte Visa — Fraude urgente", "⚠️ URGENT : Guider le client pour bloquer immédiatement sa carte depuis l’app Wave (Carte > Mes cartes > Bloquer). Transférer ensuite à l’équipe Virtual Visa pour investigation fraude avec : dates et montants des transactions suspectes, noms des marchands."),
-    "visa_litige":        ("Carte Visa — Litige transaction", "Recueillir : date, montant, nom du marchand, statut de la transaction dans l’app (débitée/échouée). Transférer à l’équipe Virtual Visa avec tous ces détails pour ouverture de litige."),
-    "visa_remboursement": ("Carte Visa — Remboursement", "Transférer à l’équipe Virtual Visa avec : date du paiement, montant, marchand, motif du remboursement (article non reçu, annulation, promesse marchand). Le délai est communiqué par l’équipe Virtual Visa."),
-    "visa_paiement":      ("Carte Visa — Paiement refusé", "Vérifier le solde disponible sur la carte. Si solde suffisant, transférer à l’équipe Virtual Visa avec : nom du site/abonnement, type de paiement (international, récurrent, unique), message d’erreur visible."),
-    "visa_carte":         ("Carte Visa — Gestion carte", "Transférer à l’équipe Virtual Visa en précisant la nature du problème : carte bloquée, récupération de fonds après perte téléphone, transfert vers compte principal, changement de téléphone."),
-    "visa_info":          ("Carte Visa — Information", "Pour toute demande d’information sur la carte Visa Wave (tarifs, frais, activation, CVV, éligibilité KYC, verrouillage, option non visible) : transférer à l’équipe Virtual Visa."),
+    # Les reps BO traitent directement les cas Visa. Seuls les cas nécessitant
+    # une intervention technique des agents Virtual Visa font l’objet d’un ticket.
+    "visa_fraude":        ("Carte Visa — Fraude urgente", "⚠️ URGENT : Guider le client pour bloquer immédiatement sa carte depuis l’app Wave (Carte > Mes cartes > Bloquer). BO : traiter directement si possible. Si investigation approfondie requise, créer un ticket pour l’équipe Virtual Visa avec : dates, montants et marchands des transactions suspectes."),
+    "visa_litige":        ("Carte Visa — Litige transaction", "Recueillir : date, montant, nom du marchand, statut de la transaction (débitée/échouée). BO : traiter si résolution directe possible. Si intervention agents Virtual Visa requise, créer un ticket avec tous ces détails pour ouverture de litige."),
+    "visa_remboursement": ("Carte Visa — Remboursement", "Recueillir : date du paiement, montant, marchand, motif (article non reçu, annulation, promesse marchand). BO : traiter directement si possible. Si intervention Virtual Visa nécessaire, créer un ticket — le délai est communiqué par leur équipe."),
+    "visa_paiement":      ("Carte Visa — Paiement refusé", "Vérifier le solde disponible sur la carte. BO : traiter si diagnostic direct possible. Si restriction technique nécessitant les agents Virtual Visa, créer un ticket avec : nom du site/abonnement, type de paiement (international, récurrent, unique), message d’erreur visible."),
+    "visa_carte":         ("Carte Visa — Gestion carte", "BO : traiter directement selon la nature du problème (carte bloquée, récupération fonds, changement téléphone). Si intervention agents Virtual Visa requise, créer un ticket en précisant : nature du problème, numéro de carte, actions déjà tentées."),
+    "visa_info":          ("Carte Visa — Information", "BO : répondre directement aux questions d’information (tarifs, frais, activation, CVV, éligibilité KYC, verrouillage). Si action technique réservée aux agents Virtual Visa, créer un ticket avec le détail de la demande."),
 }
 
 ROLE = {
@@ -484,7 +509,32 @@ def forced_fo_view(intent):
         return ("Transfert BO requis", f"{title} est réservé au Back Office. Action FO : ne pas traiter l’action BO, sécuriser les informations utiles, faire #1/transférer selon queue BO et préciser le contexte.")
     return None
 
+RELANCE_INFO = {
+    "deblocage_compte":     ("ticket de déblocage compte",                         "Délai selon l'équipe Fraude/Unblock."),
+    "b2w":                  ("Report B2W Problem",                                  "Délai max 72h jours ouvrés."),
+    "canal":                ("Report Bill Payment Problem",                          "Délai environ 1 semaine ouvrée."),
+    "refund":               ("Report refunding dispute",                             "Délai 48h jours ouvrés."),
+    "merchant_issue":       ("Merchant Issue",                                       "Délai 72h jours ouvrés."),
+    "startimes":            ("Report Bill Payment Problem",                          "Délai 72h jours ouvrés."),
+    "cie_prepayee":         ("Report Bill Pay Problem",                              "Délai 72h jours ouvrés."),
+    "agent_bank_rebalance": ("demande de rééquilibrage dans #ci-liquidity",         "Délai normalement résolu en quelques heures."),
+    "agent_reject_id":      ("demande #ci-compliance",                              "Délai 30 minutes en jours ouvrés."),
+    "visa_fraude":          ("dossier Fraude Virtual Visa",                          "Délai communiqué par l'équipe Virtual Visa."),
+    "visa_litige":          ("dossier Litige Virtual Visa",                          "Délai communiqué par l'équipe Virtual Visa."),
+    "visa_remboursement":   ("dossier Remboursement Virtual Visa",                  "Délai communiqué par l'équipe Virtual Visa."),
+}
+
 def decision(intent, answers, obstacles, profile):
+    # ── Relance / suivi ticket existant ──
+    if "ticket_existant" in obstacles and intent in RELANCE_INFO:
+        label, delai = RELANCE_INFO[intent]
+        return "ok", f"Relance — {label}", (
+            f"Le {label} a déjà été créé. Pour faire une relance :\n"
+            "1. Retrouver le ticket/dossier existant dans le système.\n"
+            "2. Ajouter un commentaire de relance avec la date du jour et la demande du client.\n"
+            f"3. Informer le client que la demande est en cours de traitement. {delai}"
+        )
+
     # Obstacle priority: fraud blocking wins over double identity for unblock.
     if "blocage_fraude" in obstacles and intent == "identification":
         return "warn", "Ticket déblocage compte", "Blocage Fraude détecté : ne pas rejeter la pièce et ne pas débloquer directement. Créer le ticket de déblocage de compte selon le process Fraude/Unblock Request."
@@ -828,34 +878,34 @@ BANK = [
 
     # ── Carte Visa Wave ──
     {"role":"FO","theme":"Carte Visa — Info",
-     "case":"Un client appelle car il ne trouve pas l’option ‘Carte Visa’ dans son application Wave. Il ne sait pas s’il est éligible ni comment l’activer.",
+     "case":"Un client appelle car il ne voit pas l’option ‘Carte Visa’ dans son application Wave. Il demande si c’est normal et comment l’obtenir.",
      "q":"Action FO ?",
-     "opts":["Activer la carte directement depuis Front","Transférer à l’équipe Virtual Visa — toute question sur la carte Visa leur appartient","Report B2W Problem","Recover PIN"],"a":1,
-     "exp":"Toutes les demandes sur la carte Visa Wave (accès, activation, éligibilité, tarifs, CVV) : transférer à l’équipe Virtual Visa."},
+     "opts":["Vérifier le profil KYC dans Front et répondre directement au client","Remonter au BO — qui répondra ou créera un ticket pour les agents Virtual Visa si besoin","Créer un Merchant Issue","Lui demander de mettre à jour l’application et rappeler"],"a":1,
+     "exp":"Toute demande Visa remonte au BO. Le BO répond directement aux questions d’information ou crée un ticket pour les agents Virtual Visa si une action technique est requise. Le FO ne traite aucune demande Visa en direct."},
 
-    {"role":"FO","theme":"Carte Visa — Fraude",
-     "case":"Un client signale 3 paiements inconnus effectués avec sa carte Visa Wave depuis ce matin. Il n’est pas à l’origine de ces transactions et craint une utilisation frauduleuse.",
+    {"role":"BO","theme":"Carte Visa — Fraude",
+     "case":"Un client signale 3 paiements inconnus sur sa carte Visa Wave depuis ce matin. Il n’est pas à l’origine de ces transactions.",
      "q":"Quelle est la priorité absolue avant toute autre action ?",
-     "opts":["Ouvrir directement un litige","Guider le client pour bloquer immédiatement sa carte depuis l’app Wave (Carte > Mes cartes > Bloquer), puis transférer l’équipe Virtual Visa avec les détails","Faire Report B2W","Recover PIN"],"a":1,
-     "exp":"Fraude carte Visa : bloquer la carte EN PREMIER via l’app Wave. Ensuite transférer Virtual Visa avec dates, montants et marchands des transactions suspectes."},
+     "opts":["Ouvrir directement un litige Virtual Visa","Guider le client pour bloquer sa carte depuis l’app Wave (Carte > Mes cartes > Bloquer), puis traiter directement ou créer un ticket si investigation approfondie requise","Faire Report B2W","Recover PIN"],"a":1,
+     "exp":"Fraude Visa : bloquer la carte EN PREMIER. Le BO traite ensuite directement si possible. Si investigation approfondie nécessaire, créer un ticket pour les agents Virtual Visa avec dates, montants et marchands suspects."},
 
-    {"role":"FO","theme":"Carte Visa — Paiement refusé",
-     "case":"Un client appelle car son paiement sur un site de e-commerce international est systématiquement refusé, alors que sa carte Visa Wave affiche un solde suffisant.",
-     "q":"Action ?",
-     "opts":["Rembourser le client","Vérifier le solde disponible sur la carte, puis transférer Virtual Visa avec : nom du site, type de paiement, message d’erreur affiché","Faire Merchant Issue","Recover PIN"],"a":1,
-     "exp":"Paiement refusé carte Visa : vérifier le solde, puis transférer Virtual Visa avec tous les détails (site, type de paiement, message d’erreur). L’équipe Virtual Visa analysera la restriction."},
+    {"role":"BO","theme":"Carte Visa — Paiement refusé",
+     "case":"Un client : sa carte Visa Wave est suffisamment approvisionnée mais son paiement sur un site international est systématiquement refusé.",
+     "q":"Action BO ?",
+     "opts":["Rembourser directement","Vérifier le solde, traiter directement si diagnostic possible ; si restriction technique Virtual Visa, créer un ticket avec les détails du site et du paiement","Faire Merchant Issue","Recover PIN"],"a":1,
+     "exp":"Paiement refusé Visa : BO vérifie le solde et tente un diagnostic. Si la restriction nécessite les agents Virtual Visa, créer un ticket avec : site, type de paiement (international/récurrent/unique), message d’erreur."},
 
-    {"role":"FO","theme":"Carte Visa — Litige",
-     "case":"Un client constate qu’il a été débité deux fois pour le même achat effectué hier avec sa carte Visa Wave. Le marchand confirme n’avoir encaissé qu’une seule fois.",
-     "q":"Action ?",
-     "opts":["Procéder directement au remboursement du double débit","Recueillir date, montant, nom du marchand et transférer Virtual Visa pour ouverture de litige","Faire Report B2W Problem","Ignorer — les doublons se régulent automatiquement"],"a":1,
-     "exp":"Double débit carte Visa : collecter date, montant, marchand et transférer Virtual Visa pour ouverture de litige. Ne pas rembourser directement — c’est le rôle de l’équipe Virtual Visa."},
+    {"role":"BO","theme":"Carte Visa — Litige",
+     "case":"Un client a été débité deux fois pour le même achat avec sa carte Visa Wave. Le marchand confirme n’avoir encaissé qu’une seule fois.",
+     "q":"Action BO ?",
+     "opts":["Rembourser directement le double débit","Recueillir date/montant/marchand, traiter directement si possible ; si agents Virtual Visa nécessaires pour le litige, créer un ticket","Faire Report B2W Problem","Ignorer — les doublons se régulent automatiquement"],"a":1,
+     "exp":"Double débit Visa : BO recueille les informations. Traiter directement si possible. Si les agents Virtual Visa sont requis pour l’ouverture du litige, créer un ticket avec tous les détails."},
 
-    {"role":"FO","theme":"Carte Visa — Remboursement",
-     "case":"Un client a payé une commande en ligne avec sa carte Visa Wave il y a 2 semaines. La commande n’est jamais arrivée. Le marchand refuse de le rembourser.",
-     "q":"Action ?",
-     "opts":["Rembourser directement sur le compte Wave","Transférer Virtual Visa avec date de paiement, montant, nom du marchand et motif (article non reçu, marchand non coopératif)","Report B2W Problem","Merchant Issue"],"a":1,
-     "exp":"Remboursement carte Visa : transférer Virtual Visa avec tous les détails. Le délai de traitement est communiqué par l’équipe Virtual Visa."},
+    {"role":"BO","theme":"Carte Visa — Remboursement",
+     "case":"Un client a payé une commande avec sa carte Visa Wave il y a 2 semaines. La commande n’est jamais arrivée et le marchand refuse de rembourser.",
+     "q":"Action BO ?",
+     "opts":["Rembourser directement depuis Wave","Recueillir date/montant/marchand/motif, traiter directement si possible ; si agents Virtual Visa requis, créer un ticket — délai communiqué par leur équipe","Report B2W Problem","Merchant Issue"],"a":1,
+     "exp":"Remboursement Visa : BO recueille les informations. Traiter directement si possible. Si les agents Virtual Visa sont nécessaires, créer un ticket. Le délai est communiqué par leur équipe."},
 
     # ══ BACK OFFICE ══
 
@@ -970,6 +1020,208 @@ BANK = [
      "q":"Action BO ?",
      "opts":["Lui dire d’attendre encore — le délai normal peut aller jusqu’à 6h","Créer une demande dans ci-liquidity avec montant, nom agent, banque et date","Report B2W Problem","Transférer FO"],"a":1,
      "exp":"Rééquilibrage par banque : bordereau soumis + plus de 3h sans UV = demande dans ci-liquidity avec le template complet (montant / agent / banque / date)."},
+
+    # ══ FRONT OFFICE — RECOVER PIN / RESET PIN ══
+
+    {"role":"FO","theme":"Recover PIN",
+     "case":"Un client appelle car il a oublié son code PIN Wave. Il veut le réinitialiser.",
+     "q":"Action FO ?",
+     "opts":["Lui communiquer son PIN directement depuis Front","Lancer le process Recover PIN depuis Front — le client reçoit un lien de réinitialisation","Transférer BO","Créer un Report B2W Problem"],"a":1,
+     "exp":"Recover PIN : lancer le process depuis Front. Le client reçoit un lien pour réinitialiser son PIN. Le FO ne communique jamais un PIN directement."},
+
+    {"role":"FO","theme":"Recover PIN",
+     "case":"Un client a tenté le Recover PIN mais dit ne pas avoir reçu le SMS de réinitialisation depuis 20 minutes.",
+     "q":"Que faire ?",
+     "opts":["Lui communiquer le code directement","Vérifier que l’appel vient du numéro concerné, relancer le Recover PIN et lui demander de vérifier son réseau","Transférer BO immédiatement","Créer Merchant Issue"],"a":1,
+     "exp":"SMS non reçu : vérifier le numéro d’appel, relancer le Recover PIN. Vérifier réseau/signal. Si le problème persiste, le BO peut approfondir."},
+
+    {"role":"FO","theme":"Recover PIN",
+     "case":"Un client appelle depuis un numéro différent de son compte Wave car il n’a plus accès à son téléphone. Il demande un Recover PIN.",
+     "q":"Action FO ?",
+     "opts":["Lancer le Recover PIN depuis le numéro fourni","Ne pas lancer le Recover PIN — le client doit appeler depuis le numéro Wave concerné","Transférer BO pour exception","Créer un ticket admin"],"a":1,
+     "exp":"Recover PIN : le client doit impérativement appeler depuis son numéro Wave. Pas d’exception possible depuis un autre numéro en FO."},
+
+    {"role":"FO","theme":"Reset PIN",
+     "case":"Un client veut changer son PIN Wave alors qu’il le connaît encore, juste pour en mettre un nouveau.",
+     "q":"Action FO ?",
+     "opts":["Lancer Recover PIN","Orienter le client vers l’option Reset PIN directement dans son application Wave","Transférer BO","Créer un ticket"],"a":1,
+     "exp":"Reset PIN (changement volontaire) : le client peut le faire directement dans son app Wave. Pas besoin de Recover PIN ni d’action FO."},
+
+    {"role":"FO","theme":"Agent Recover PIN",
+     "case":"Un agent appelle car il a oublié son code PIN de l’application agent Wave.",
+     "q":"Action FO ?",
+     "opts":["Lancer le Recover PIN standard","Lancer Agent Recover PIN depuis le numéro agent concerné","Transférer BO directement","Créer un Merchant Issue"],"a":1,
+     "exp":"Agent Recover PIN : process spécifique agent, différent du Recover PIN client. Doit être lancé depuis le numéro agent concerné."},
+
+    # ══ FRONT OFFICE — AGENT (cas complémentaires) ══
+
+    {"role":"FO","theme":"Agent — Erreur transaction",
+     "case":"Un agent signale qu’un client a déposé de l’argent chez lui mais la transaction n’apparaît pas dans l’app du client. L’agent a bien vu l’opération se valider de son côté.",
+     "q":"Action FO ?",
+     "opts":["Rembourser directement","Recueillir les détails (date, montant, numéro client, numéro agent) et créer un rapport Agent Error Transaction","Orienter Canal+ 1313","Recover PIN"],"a":1,
+     "exp":"Erreur transaction agent : recueillir tous les détails et créer le rapport Agent Error Transaction. Ne jamais rembourser directement sans investigation."},
+
+    {"role":"FO","theme":"Agent — Erreur transaction",
+     "case":"Un client dit avoir fait un retrait chez un agent Wave mais que son solde a été débité sans qu’il reçoive l’argent. L’agent est injoignable.",
+     "q":"Action FO ?",
+     "opts":["Rembourser immédiatement","Ouvrir un rapport Agent Error Transaction avec : date, montant, numéro agent, numéro client — délai d’investigation","Orienter directement vers la police","Merchant Issue"],"a":1,
+     "exp":"Agent injoignable + débit sans cash = rapport Agent Error Transaction. Investigation nécessaire avant tout remboursement."},
+
+    {"role":"FO","theme":"Agent — Plainte client",
+     "case":"Un client appelle pour porter plainte contre un agent Wave qui lui aurait demandé une commission supérieure au tarif officiel.",
+     "q":"Action FO ?",
+     "opts":["Remboursement immédiat de la commission","Recueillir les détails (numéro agent, date, montant, lieu) et créer une plainte client contre agent","Orienter vers le commissariat","Ignorer — les frais agents sont libres"],"a":1,
+     "exp":"Plainte contre agent : recueillir tous les détails (numéro agent, date, montant réclamé) et créer la plainte. L’équipe compétente traitera l’investigation."},
+
+    {"role":"FO","theme":"Agent — Scan sans visibilité",
+     "case":"Un client a scanné un QR code agent pour payer mais la transaction n’apparaît ni chez lui ni chez l’agent. Les deux voient ‘aucune transaction récente’.",
+     "q":"Action FO ?",
+     "opts":["Rembourser le client","Vérifier le statut de la transaction sur Front et appliquer le process Agent Scan No Visibility si confirmé","Recover PIN","Merchant Issue"],"a":1,
+     "exp":"Scan sans visibilité : vérifier le statut Front. Appliquer le process Agent Scan No Visibility. Ne pas rembourser sans confirmation du statut."},
+
+    {"role":"FO","theme":"Merchant Creation",
+     "case":"Un commerçant appelle pour créer un compte marchand Wave et obtenir son QR code de paiement.",
+     "q":"Action FO ?",
+     "opts":["Créer le compte directement depuis Front","Expliquer les critères et envoyer le lien de demande ‘Devenir marchand’ via Front","Transférer BO","Orienter vers l’agence Wave uniquement"],"a":1,
+     "exp":"Création marchand : expliquer les critères d’éligibilité et envoyer le lien de demande via Front. Pas de création manuelle directe par le FO."},
+
+    {"role":"FO","theme":"Merchant Creation",
+     "case":"Un marchand a déjà soumis une demande de compte marchand il y a 5 jours mais n’a pas encore reçu de réponse.",
+     "q":"Action FO ?",
+     "opts":["Créer le compte directement","Vérifier le statut de la demande dans Front et informer le marchand du délai en cours","Rembourser les frais","Orienter Canal+ 1313"],"a":1,
+     "exp":"Suivi demande marchand : vérifier le statut dans Front et communiquer le délai. Si bloqué, escalader selon le process prévu."},
+
+    {"role":"FO","theme":"Agent — Type",
+     "case":"Un agent appelle pour savoir s’il est principal ou assistant sur son compte agent.",
+     "q":"Où trouver cette information ?",
+     "opts":["Lui demander à son superviseur","Consulter Front > onglet Agent > Agent user : Primaire = Principal","Transférer BO","Créer un ticket"],"a":1,
+     "exp":"Type agent : Front > onglet Agent > Agent user. Si ‘Primaire’ s’affiche = Principal. Principal gère commissions et assistants. Assistant fait transactions et MAJ app uniquement."},
+
+    {"role":"FO","theme":"Agent — Limite rééquilibrage",
+     "case":"Un agent signale que sa demande de rééquilibrage est bloquée avec un message de limite atteinte.",
+     "q":"Action FO ?",
+     "opts":["Lui demander d’attendre jusqu’au lendemain","Depuis le compte agent dans Front : Request to suspend rebalance limits — le ticket apparaîtra dans #ci-agent-management","Créer Report B2W","Transférer BO"],"a":1,
+     "exp":"Limite rééquilibrage atteinte : depuis Front compte agent, utiliser ‘Request to suspend rebalance limits’. Le ticket est visible dans #ci-agent-management."},
+
+    {"role":"FO","theme":"Agent — Box Wave",
+     "case":"Un agent appelle pour obtenir une Box Wave afin d’améliorer l’expérience de ses clients.",
+     "q":"Condition préalable ?",
+     "opts":["Tout agent peut demander une Box Wave immédiatement","L’agent doit d’abord être agent actif ; si déjà agent, renseigner la demande dans le fichier Box Wave prévu","Aucune condition","Transférer BO"],"a":1,
+     "exp":"Box Wave : condition = être agent Wave actif. Si agent confirmé, renseigner la demande dans le fichier Box Wave prévu."},
+
+    {"role":"FO","theme":"Agent — Changer numéro principal",
+     "case":"Un agent principal veut transférer son compte agent vers un nouveau numéro de téléphone.",
+     "q":"Comment traiter cette demande ?",
+     "opts":["Changer le numéro directement depuis Front","Faire une demande Slack dans ci-agent-management au TL : ancien numéro → nouveau numéro + CC @ci-agent-admins","Transférer BO","Recover PIN sur le nouveau numéro"],"a":1,
+     "exp":"Changement numéro agent principal : demande Slack dans ci-agent-management au TL, avec ancien et nouveau numéro, CC @ci-agent-admins."},
+
+    # ══ FRONT OFFICE — CIE/SODECI complémentaires ══
+
+    {"role":"FO","theme":"CIE/SODECI",
+     "case":"Un client SODECI a payé sa facture Wave mais l’agence SODECI lui dit qu’ils n’ont pas reçu le paiement, même 3 jours après.",
+     "q":"Action FO ?",
+     "opts":["Rembourser directement","Communiquer les références du reçu Wave (ID transaction, date, montant) et orienter vers SODECI 22 50 85 00 ou agence","Créer Report B2W","Escalader Partner Ops"],"a":1,
+     "exp":"SODECI : Wave ne peut pas forcer le crédit chez SODECI. Communiquer les références du reçu Wave et orienter vers SODECI directement."},
+
+    {"role":"FO","theme":"B2W",
+     "case":"Un client a fait un B2W qui est apparu comme ‘Cancelled and Refunded’ dans Front. Il s’inquiète pour son argent.",
+     "q":"Que lui expliquer ?",
+     "opts":["Créer Report B2W Problem","Le B2W a été annulé automatiquement et le remboursement est en cours sous 48h — aucune action nécessaire","Orienter vers sa banque","Merchant Issue"],"a":1,
+     "exp":"B2W ‘Cancelled and Refunded’ : le remboursement a été initié automatiquement. Confirmer au client le délai de 48h. Aucune action supplémentaire."},
+
+    {"role":"FO","theme":"B2W",
+     "case":"Un client veut savoir pourquoi son B2W a échoué. Error details sur Front indique : ‘Account inactive’.",
+     "q":"Action ?",
+     "opts":["Créer Report B2W Problem","Orienter vers la banque — le compte bancaire est inactif côté banque","Recover PIN","Merchant Issue"],"a":1,
+     "exp":"’Account inactive’ dans Error details = raison bancaire claire. Orienter le client vers sa banque pour réactiver son compte."},
+
+    # ══ FRONT OFFICE — Canal+ complémentaires ══
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Un client a payé Canal+ mais son décodeur affiche ‘Numéro non reconnu’. Le numéro saisi sur Wave correspond exactement à ce qui est inscrit sur son décodeur. Il reste 8 jours ouvrés.",
+     "q":"Action ?",
+     "opts":["Orienter Canal+ 1313 directement","Report Bill Payment Problem — numéro correct mais rejet Canal+, délai suffisant","Rembourser","Merchant Issue"],"a":1,
+     "exp":"Numéro correct + rejet technique Canal+ + 8 jours restants = Report Bill Payment Problem. Le délai est suffisant pour traitement."},
+
+    {"role":"FO","theme":"Canal+",
+     "case":"Le client appelle un samedi à 17h. Il a payé Canal+ avec un mauvais numéro. L’abonnement se termine dans 9 jours ouvrés.",
+     "q":"Action ?",
+     "opts":["Dire au client de rappeler lundi — pas d’action le week-end","Report Bill Payment Problem avec le bon numéro — le délai est suffisant","Orienter Canal+ 1313","Rembourser"],"a":1,
+     "exp":"L’heure ou le jour de la semaine ne change pas le process. Numéro erroné + 9 jours restants = Report Bill Payment Problem avec le bon numéro."},
+
+    # ══ BACK OFFICE — complémentaires ══
+
+    {"role":"BO","theme":"Device restriction",
+     "case":"Un client appelle depuis son ancien téléphone (celui qui était lié au compte) pour signaler une device restriction liée à son nouveau téléphone.",
+     "q":"Peut-on lever la restriction ?",
+     "opts":["Oui, l’appel vient de l’ancien téléphone lié — lever directement","Non — l’appel doit venir du numéro du compte, pas d’un ancien téléphone. Demander au client d’appeler depuis son numéro Wave","Transférer FO","Recover PIN"],"a":1,
+     "exp":"Device restriction : l’appel doit venir du NUMÉRO Wave concerné, pas d’un ancien appareil. Demander au client d’appeler depuis son numéro Wave habituel."},
+
+    {"role":"BO","theme":"Device restriction",
+     "case":"Un client passe AB Verification avec succès pour lever sa device restriction. Au moment de lever la restriction, Front affiche une erreur technique.",
+     "q":"Action BO ?",
+     "opts":["Dire au client que la restriction ne peut pas être levée","Documenter l’erreur technique, escalader en interne avec capture et numéro du client — ne pas dire au client que c’est impossible","Recover PIN","Créer Report B2W"],"a":1,
+     "exp":"Erreur technique lors de la levée de restriction : documenter et escalader en interne. Le client a rempli les conditions — l’erreur est technique, pas une raison de refus."},
+
+    {"role":"BO","theme":"Identification",
+     "case":"Un client KYC2 admet avoir utilisé la pièce de sa mère lors de l’inscription. Il réussit les questions sécurité mais sa mère ne peut pas être présente pour valider.",
+     "q":"Action BO ?",
+     "opts":["Refuser toute action — la mère doit être présente","Rejeter la pièce de la mère et inviter le client à utiliser sa propre pièce d’identité","Débloquer sans action sur l’identité","Créer ticket Fraude"],"a":1,
+     "exp":"Pièce d’un tiers + aveu + sécurité réussie : rejeter la pièce du tiers et inviter à refaire avec sa propre pièce. La présence de la mère n’est pas requise."},
+
+    {"role":"BO","theme":"Identification",
+     "case":"Sur Front, le compte affiche deux noms : ‘Bamba Koné’ (haut) et ‘Aminata Koné’ (bas). L’appelante dit être Aminata Koné (la vraie titulaire) et affirme que c’est son mari qui s’est inscrit avec sa pièce. Elle réussit les 4 questions sécurité.",
+     "q":"Action BO ?",
+     "opts":["Exécuter l’action demandée sans toucher à l’identité","Vérifier que l’appelante est bien le nom du bas, recueillir son aveu, rejeter la pièce du mari, inviter à refaire l’identification avec sa propre pièce","Créer ticket Fraude automatiquement","Refuser : le mari doit appeler"],"a":1,
+     "exp":"Double identité : vérifier que c’est bien le nom du bas qui appelle. Aveu + sécurité réussie = rejeter pièce du tiers, refaire identification propre pièce."},
+
+    {"role":"BO","theme":"Move balance",
+     "case":"Un client veut faire un move balance mais répond correctement à seulement 3 des 4 questions sécurité. Il insiste en disant que la 4e réponse est correcte mais mal saisie.",
+     "q":"Action BO ?",
+     "opts":["Procéder au move balance — 3/4 c’est suffisant","Refuser le move balance — les 4 bonnes réponses sont obligatoires sans exception","Faire une exception avec l’accord du TL","Proposer un partiel à la place"],"a":1,
+     "exp":"Move balance : les 4 bonnes réponses sont obligatoires. 3/4 ne suffit pas, même avec insistance du client. Pas d’exception."},
+
+    {"role":"BO","theme":"Refund B2P",
+     "case":"Un marchand appelle avec le bon numéro de transaction pour demander un Refund B2P. Cependant, les fonds sur le compte marchand sont insuffisants pour couvrir le remboursement.",
+     "q":"Action BO ?",
+     "opts":["Procéder quand même — le système gérera le solde négatif","Ne pas procéder — informer le marchand que les fonds disponibles sont insuffisants pour le Refund B2P","Rembourser depuis le compte Wave principal","Transférer FO"],"a":1,
+     "exp":"Refund B2P : fonds insuffisants = ne pas procéder. Informer le marchand. Il doit d’abord réapprovisionner son compte marchand."},
+
+    {"role":"BO","theme":"Autorisation parentale",
+     "case":"Un mineur KYC1 appelle pour passer en KYC2. Ses parents sont disponibles mais ne savent pas comment utiliser l’application pour valider l’autorisation parentale.",
+     "q":"Action BO ?",
+     "opts":["Valider l’autorisation directement depuis Front","Envoyer les liens ToolCI mineur et parent pour guider le processus d’autorisation parentale","Passer le mineur en KYC2 directement","Transférer FO"],"a":1,
+     "exp":"Autorisation parentale : envoyer les liens ToolCI dédiés au mineur et au parent. Ce sont ces liens qui guident le processus. Le BO ne valide pas directement."},
+
+    {"role":"BO","theme":"Rejet pièce agent",
+     "case":"Un agent appelle pour rejeter sa pièce mais n’a pas encore son numéro d’ID agent à portée. Il dit qu’il rappellera avec.",
+     "q":"Action BO ?",
+     "opts":["Traiter la demande sans l’ID agent — trouver le numéro soi-même","Demander à l’agent de rappeler avec son ID agent — c’est une information obligatoire pour la demande #ci-compliance","Faire le rejet directement depuis Front","Transférer FO"],"a":1,
+     "exp":"Rejet pièce agent : l’ID agent est obligatoire pour la demande dans #ci-compliance. Demander à l’agent de rappeler avec cette information."},
+
+    {"role":"BO","theme":"Déblocage compte",
+     "case":"Un client a bloqué son compte jeudi à 14h pour téléphone perdu. Il rappelle le vendredi matin à 10h avec sa pièce et réussit AB Verification. Les conditions du jour sont réunies.",
+     "q":"Décision BO ?",
+     "opts":["Ne pas débloquer — attendre 24h complètes","Débloquer — blocage jeudi, rappel vendredi (jour différent), conditions OK, AB Verification réussie","Faire Recover PIN seulement","Transférer à la Fraude"],"a":1,
+     "exp":"Blocage jeudi + rappel vendredi (lendemain) : les conditions sont réunies (jour différent, pas samedi/dimanche, AB Verification réussie). Déblocage autorisé."},
+
+    {"role":"BO","theme":"Déblocage compte",
+     "case":"Un client a bloqué son compte vendredi à 17h. Il rappelle le samedi matin à 9h avec sa pièce et réussit AB Verification.",
+     "q":"Décision BO ?",
+     "opts":["Débloquer — c’est le lendemain et tout est OK","Ne pas débloquer — blocage vendredi après 13h + rappel samedi = rappeler lundi","Faire Recover PIN","Créer ticket Fraude"],"a":0,
+     "exp":"Blocage vendredi après 13h + rappel samedi : DÉBLOCAGE AUTORISÉ. La règle samedi-après-13h s’applique uniquement au blocage du samedi (pas du vendredi). Vendredi → samedi est un déblocage normal si toutes les conditions sont réunies."},
+
+    {"role":"BO","theme":"Double identité + Fraude",
+     "case":"Un compte présente une double identité ET un blocage Fraude. L’appelant reconnaît avoir utilisé la pièce d’un tiers et réussit les questions sécurité. Il veut qu’on rejette la pièce.",
+     "q":"Action BO ?",
+     "opts":["Rejeter la pièce — il a réussi les questions sécurité","Ne pas rejeter la pièce — blocage Fraude prioritaire. Créer ticket déblocage compte via process Fraude uniquement","Débloquer directement","Move balance"],"a":1,
+     "exp":"Blocage Fraude + double identité : la Fraude prime sur tout. Créer ticket déblocage compte. Pas de rejet de pièce tant que le blocage Fraude n’est pas levé par l’équipe compétente."},
+
+    {"role":"BO","theme":"Refund",
+     "case":"Un destinataire appelle le BO. Il a reçu de l’argent par virement Wave il y a 2 jours et veut le renvoyer à l’expéditeur car c’était une erreur.",
+     "q":"Action BO ?",
+     "opts":["Annuler la transaction directement","Expliquer que le destinataire peut faire lui-même un virement retour depuis son app — aucune action BO nécessaire si le destinataire coopère","Créer Report refunding dispute","Refund B2P"],"a":1,
+     "exp":"Destinataire coopératif : il peut simplement renvoyer l’argent depuis son app. Pas besoin de report refunding dispute. Ce process s’applique uniquement en cas de contestation."},
 ]
 
 # ─── Helpers semaines 2026 ───
@@ -991,13 +1243,13 @@ def week_label(w):
 def weekly_items(role, n, week, mix_fo_bo=False):
     seed = 2026 * 1000 + week + (7 if role == "Back Office" else 3) + (13 if mix_fo_bo else 0)
     if role == "Front Office":
-        # FO : uniquement les questions FO
+        # FO : questions FO uniquement
         pool = [x for x in BANK if x["role"] == "FO"]
     elif mix_fo_bo:
-        # BO avec mix coché : questions BO + FO
+        # BO avec mix coché : questions BO + FO (compétence complète)
         pool = BANK[:]
     else:
-        # BO par défaut : uniquement les questions BO
+        # BO par défaut : questions BO uniquement
         pool = [x for x in BANK if x["role"] == "BO"]
     rnd = random.Random(seed)
     items = pool[:]
@@ -1049,7 +1301,7 @@ def render_quiz(profile, rep_name):
         mix = False
         if role == "Back Office":
             mix = st.checkbox("Mixer FO + BO", value=False,
-                              help="Inclure des questions Front Office en plus des questions BO")
+                              help="Les BO ont la compétence FO. Cocher pour inclure les questions FO dans le quiz — sinon BO uniquement par défaut.")
 
     n = st.slider("Nombre de questions", 5, 15, 10)
     items = weekly_items(role, n, week, mix_fo_bo=mix)
@@ -1205,21 +1457,84 @@ def render_ranking():
         )
 
 def render_cases(profile):
-    st.markdown('<div class="wave-card"><div class="big-title">📞 Cas pratiques du jour</div><p>Scénarios narratifs quotidiens, sans annoncer le process dès le départ.</p></div>', unsafe_allow_html=True)
-    role = st.selectbox("Cas pour", ["Front Office","Back Office"], index=0 if profile=="Front Office" else 1)
-    day = st.date_input("Date des cas", value=date.today())
-    count = st.slider("Nombre de cas", 3, 10, 5)
-    items = daily_items(role, count, day.toordinal()-date.today().toordinal()+31)
-    st.info(f"Cas pratiques du {day.isoformat()} — {role}. Série identique pour tous les reps ce jour-là.")
-    for i,it in enumerate(items,1):
-        st.markdown(f'<div class="wave-card"><h2>Cas {i}</h2><p>{it["case"]}</p><b>{it["q"]}</b></div>', unsafe_allow_html=True)
-        ans=st.radio("Réponse", it["opts"], key=f"case_{day}_{role}_{i}")
-        if st.button(f"Corriger le cas {i}"):
-            ok = it["opts"].index(ans)==it["a"]
-            if ok: st.success("Bonne réponse.")
-            else: st.error("Réponse incorrecte.")
-            st.write(f"Réponse attendue : **{it['opts'][it['a']]}**")
+    st.markdown('<div class="wave-card"><div class="big-title">📞 Cas pratiques du jour</div><p>Entraînement quotidien — scénarios réalistes tirés de tous les process. Même série pour toute l\'équipe ce jour-là.</p></div>', unsafe_allow_html=True)
+
+    # ── Paramètres ──
+    col_role, col_mix = st.columns([2, 1])
+    with col_role:
+        role = st.selectbox("Profil", ["Front Office", "Back Office"],
+                            index=0 if profile == "Front Office" else 1,
+                            key="cases_role")
+    with col_mix:
+        mix = False
+        if role == "Back Office":
+            mix = st.checkbox("Mixer FO + BO", value=False,
+                              help="Les BO ont la compétence FO. Cocher pour inclure les cas FO.",
+                              key="cases_mix")
+
+    day = st.date_input("Date des cas", value=date.today(), key="cases_date")
+    count = st.slider("Nombre de cas", 5, 20, 10, key="cases_count")
+
+    # Seed journalier différent du quiz (offset +500)
+    offset = day.toordinal() - date.today().toordinal() + 500
+    if mix:
+        pool = BANK[:]
+    elif role == "Back Office":
+        pool = [x for x in BANK if x["role"] == "BO"]
+    else:
+        pool = [x for x in BANK if x["role"] == "FO"]
+
+    rnd = random.Random(day.toordinal() + (9 if role == "Back Office" else 5) + (17 if mix else 0))
+    shuffled = pool[:]
+    rnd.shuffle(shuffled)
+    # Diversité thématique
+    seen_themes = set(); diverse = []
+    for it in shuffled:
+        if it["theme"] not in seen_themes:
+            diverse.append(it); seen_themes.add(it["theme"])
+        if len(diverse) >= count: break
+    if len(diverse) < count:
+        diverse += [x for x in shuffled if x not in diverse][:count - len(diverse)]
+    items = diverse[:count]
+
+    profil_label = f"{role}{' + FO' if mix else ''}"
+    st.info(f"**Cas du {day.isoformat()}** — {profil_label}. Toute l'équipe a les mêmes cas ce jour-là.")
+
+    # ── Affichage des cas ──
+    answers = []
+    for i, it in enumerate(items, 1):
+        st.markdown(
+            f'<div class="wave-card"><h3>Cas {i} — {it["theme"]}</h3>'
+            f'<p>{it["case"]}</p><b>{it["q"]}</b></div>',
+            unsafe_allow_html=True
+        )
+        ans = st.radio("Réponse", it["opts"], key=f"cases_{day}_{role}_{mix}_{i}")
+        answers.append((it, ans))
+
+    # ── Correction globale ──
+    if st.button("✅ Corriger les cas", type="primary", key="cases_correct"):
+        score = 0; weak = []
+        for i, (it, ans) in enumerate(answers, 1):
+            ok = it["opts"].index(ans) == it["a"]
+            score += ok
+            if not ok:
+                weak.append(it["theme"])
+            color = "✅" if ok else "❌"
+            st.markdown(f"**Cas {i} — {color} {it['theme']}**")
+            st.write(f"Bonne réponse : **{it['opts'][it['a']]}**")
             st.caption(it["exp"])
+
+        pct = round(score / len(items) * 100)
+        st.divider()
+        if pct >= 80:
+            st.success(f"🎉 Score : {score}/{len(items)} — {pct}%")
+        elif pct >= 60:
+            st.warning(f"📊 Score : {score}/{len(items)} — {pct}%")
+        else:
+            st.error(f"📉 Score : {score}/{len(items)} — {pct}% — Process à retravailler")
+
+        if weak:
+            st.warning("⚠️ Process à renforcer : " + ", ".join(sorted(set(weak))))
 
 def render_tests():
     st.markdown('<div class="wave-card"><div class="big-title">🧪 Tests métier V7</div><p>Cas critiques qui doivent rester cohérents avant tout déploiement.</p></div>', unsafe_allow_html=True)
@@ -1418,9 +1733,9 @@ module = st.sidebar.selectbox("Module", [
     "Cas pratiques", "Tests métier V7", "⚙️ Administration"
 ])
 st.sidebar.markdown("---")
-st.sidebar.write("**Règle rôle :** FO voit uniquement les actions FO. BO voit FO + BO. Manager voit tout.")
+st.sidebar.write("**Règle rôle :** FO traite les cas FO. BO a la compétence FO + BO — traite les deux. Manager voit tout.")
 st.sidebar.write("**Moteur :** objectif client + obstacles + branches conditionnelles.")
-st.sidebar.write(f"**{len(QUALIFY_OPTIONS)} process · {len(KEYWORDS)} keywords · {len(BANK)} questions quiz**")
+st.sidebar.write(f"**135 process Wave · {len(QUALIFY_OPTIONS)} motorisés · {len(KEYWORDS)} keywords · {len(BANK)} questions quiz**")
 
 if module == "Assistant métier": render_assistant(profile)
 elif module == "🎓 Quiz hebdomadaire": render_quiz(profile, rep_name)

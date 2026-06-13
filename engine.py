@@ -94,6 +94,9 @@ KEYWORDS = [
     ("agent_bank_rebalance", ["reequilibrage", "banque"], 105),
     ("agent_bank_rebalance", ["agent", "reequilibrer", "banque"], 105),
     ("agent_bank_rebalance", ["agent", "virement", "bancaire"], 105),
+    ("agent_bank_rebalance", ["reequilibrage", "bordereau"], 105),
+    ("agent_bank_rebalance", ["ci-liquidity"], 100),
+    ("agent_bank_rebalance", ["bordereau", "agent", "fonds"], 105),
     # ── Facturiers / partenaires ──
     ("canal", ["canal"], 95),
     ("cie_sodeci", ["sodeci"], 90),
@@ -112,7 +115,7 @@ KEYWORDS = [
     ("b2w", ["bank", "wallet"], 90),
     ("b2w", ["virement", "banque", "wave"], 90),
     ("b2w", ["virement", "banque"], 85),
-    ("b2w", ["wave", "banque", "arrive"], 85),
+    ("b2w", ["transfert", "banque", "wave"], 90),
     ("b2w", ["wave", "to", "bank"], 90),
     ("merchant_creation", ["devenir", "marchand"], 95),
     ("merchant_creation", ["creation", "marchand"], 95),
@@ -128,6 +131,9 @@ KEYWORDS = [
     ("refund", ["plusieurs", "remboursement"], 100),
     ("refund", ["plusieurs", "remboursements"], 100),
     ("refund", ["refund"], 85),
+    ("refund", ["refunding"], 90),
+    ("refund", ["refunding", "dispute"], 100),
+    ("refund", ["dispute", "remboursement"], 95),
     # ── Solde / coffre ──
     ("move_balance", ["move", "balance"], 100),
     ("move_balance", ["mouvement", "balance"], 100),
@@ -145,7 +151,14 @@ KEYWORDS = [
     ("reset_pin", ["reset", "pin"], 90),
     ("reset_pin", ["changer", "pin"], 90),
     ("device_restriction", ["device", "restriction"], 95),
-    ("device_restriction", ["nouveau", "telephone"], 80),
+    ("device_restriction", ["nouveau", "telephone"], 85),
+    ("device_restriction", ["change", "telephone"], 90),
+    ("device_restriction", ["changement", "telephone"], 90),
+    ("device_restriction", ["change", "appareil"], 90),
+    ("device_restriction", ["nouveau", "appareil"], 85),
+    ("device_restriction", ["changement", "appareil"], 90),
+    ("device_restriction", ["change", "telephone", "banque"], 105),
+    ("device_restriction", ["telephone", "perdu", "banque"], 100),
     # ── Identification / double identité ──
     ("identification", ["double", "ident"], 100),
     ("identification", ["double", "identite"], 100),
@@ -257,12 +270,14 @@ SIMPLE_DECISIONS = {
     "agent_bank_rebalance": ("Rééquilibrage par banque", "Après bordereau soumis via app + 3h sans UV : demande dans ci-liquidity avec template montant/agent/banque/date."),
     "parental": ("Autorisation parentale", "Mineur KYC2 a besoin d'autorisation parentale. Envoyer liens ToolCI mineur/parent. Si impossible et client accepte, rejet de pièce après identification complète et type de pièce."),
     # ── Carte Visa Wave ──
-    "visa_fraude":        ("Carte Visa — Fraude urgente", "⚠️ URGENT : Guider le client pour bloquer immédiatement sa carte depuis l'app Wave (Carte > Mes cartes > Bloquer). Transférer ensuite à l'équipe Virtual Visa pour investigation fraude avec : dates et montants des transactions suspectes, noms des marchands."),
-    "visa_litige":        ("Carte Visa — Litige transaction", "Recueillir : date, montant, nom du marchand, statut de la transaction dans l'app (débitée/échouée). Transférer à l'équipe Virtual Visa avec tous ces détails pour ouverture de litige."),
-    "visa_remboursement": ("Carte Visa — Remboursement", "Transférer à l'équipe Virtual Visa avec : date du paiement, montant, marchand, motif du remboursement (article non reçu, annulation, promesse marchand). Le délai est communiqué par l'équipe Virtual Visa."),
-    "visa_paiement":      ("Carte Visa — Paiement refusé", "Vérifier le solde disponible sur la carte. Si solde suffisant, transférer à l'équipe Virtual Visa avec : nom du site/abonnement, type de paiement (international, récurrent, unique), message d'erreur visible."),
-    "visa_carte":         ("Carte Visa — Gestion carte", "Transférer à l'équipe Virtual Visa en précisant la nature du problème : carte bloquée, récupération de fonds après perte téléphone, transfert vers compte principal, changement de téléphone."),
-    "visa_info":          ("Carte Visa — Information", "Pour toute demande d'information sur la carte Visa Wave (tarifs, frais, activation, CVV, éligibilité KYC, verrouillage, option non visible) : transférer à l'équipe Virtual Visa."),
+    # Les reps BO traitent directement les cas Visa. Seuls les cas nécessitant
+    # une intervention technique des agents Virtual Visa font l'objet d'un ticket.
+    "visa_fraude":        ("Carte Visa — Fraude urgente", "⚠️ URGENT : Guider le client pour bloquer immédiatement sa carte depuis l'app Wave (Carte > Mes cartes > Bloquer). BO : traiter directement si possible. Si investigation approfondie requise, créer un ticket pour l'équipe Virtual Visa avec : dates, montants et marchands des transactions suspectes."),
+    "visa_litige":        ("Carte Visa — Litige transaction", "Recueillir : date, montant, nom du marchand, statut de la transaction (débitée/échouée). BO : traiter si résolution directe possible. Si intervention agents Virtual Visa requise, créer un ticket avec tous ces détails pour ouverture de litige."),
+    "visa_remboursement": ("Carte Visa — Remboursement", "Recueillir : date du paiement, montant, marchand, motif (article non reçu, annulation, promesse marchand). BO : traiter directement si possible. Si intervention Virtual Visa nécessaire, créer un ticket — le délai est communiqué par leur équipe."),
+    "visa_paiement":      ("Carte Visa — Paiement refusé", "Vérifier le solde disponible sur la carte. BO : traiter si diagnostic direct possible. Si restriction technique nécessitant les agents Virtual Visa, créer un ticket avec : nom du site/abonnement, type de paiement (international, récurrent, unique), message d'erreur visible."),
+    "visa_carte":         ("Carte Visa — Gestion carte", "BO : traiter directement selon la nature du problème (carte bloquée, récupération fonds, changement téléphone). Si intervention agents Virtual Visa requise, créer un ticket en précisant : nature du problème, numéro de carte, actions déjà tentées."),
+    "visa_info":          ("Carte Visa — Information", "BO : répondre directement aux questions d'information (tarifs, frais, activation, CVV, éligibilité KYC, verrouillage). Si action technique réservée aux agents Virtual Visa, créer un ticket avec le détail de la demande."),
 }
 
 ROLE = {
@@ -350,6 +365,16 @@ def classify(text):
         obstacles.append("double_identite")
     if "fraude" in t or "fraud" in t:
         obstacles.append("blocage_fraude")
+    if any(x in t for x in ["relance", "ticket ouvert", "ticket deja ouvert", "ticket est ouvert",
+                              "ticket existe", "suivi ticket", "suivi de ma reclamation",
+                              "suivi reclamation", "suivi de reclamation",
+                              "suite de ma requete", "suite de sa requete", "suite du ticket",
+                              "ticket en cours", "deja cree", "deja un ticket",
+                              "ticket a ete ouvert", "ticket a deja ete", "ticket deja cree",
+                              "problem ouvert", "problem en cours", "problem deja",
+                              "dossier ouvert", "dossier en cours", "dossier deja",
+                              "reclamation ouverte", "reclamation en cours"]):
+        obstacles.append("ticket_existant")
     if "mineur" in t or "17 ans" in t or "16 ans" in t:
         obstacles.append("mineur")
     if "agent" in t and ("piece" in t or "id" in t) and ("rej" in t or "reject" in t):
@@ -403,7 +428,33 @@ def forced_fo_view(intent):
         return ("Transfert BO requis", f"{title} est réservé au Back Office.")
     return None
 
+# Processes qui créent un ticket/escalade → sujet à relance
+RELANCE_INFO = {
+    "deblocage_compte":     ("ticket de déblocage compte",                         "Délai selon l'équipe Fraude/Unblock."),
+    "b2w":                  ("Report B2W Problem",                                  "Délai max 72h jours ouvrés."),
+    "canal":                ("Report Bill Payment Problem",                          "Délai environ 1 semaine ouvrée."),
+    "refund":               ("Report refunding dispute",                             "Délai 48h jours ouvrés."),
+    "merchant_issue":       ("Merchant Issue",                                       "Délai 72h jours ouvrés."),
+    "startimes":            ("Report Bill Payment Problem",                          "Délai 72h jours ouvrés."),
+    "cie_prepayee":         ("Report Bill Pay Problem",                              "Délai 72h jours ouvrés."),
+    "agent_bank_rebalance": ("demande de rééquilibrage dans #ci-liquidity",         "Délai normalement résolu en quelques heures."),
+    "agent_reject_id":      ("demande #ci-compliance",                              "Délai 30 minutes en jours ouvrés."),
+    "visa_fraude":          ("dossier Fraude Virtual Visa",                          "Délai communiqué par l'équipe Virtual Visa."),
+    "visa_litige":          ("dossier Litige Virtual Visa",                          "Délai communiqué par l'équipe Virtual Visa."),
+    "visa_remboursement":   ("dossier Remboursement Virtual Visa",                  "Délai communiqué par l'équipe Virtual Visa."),
+}
+
 def decision(intent, answers, obstacles, profile):
+    # ── Relance / suivi ticket existant ──
+    if "ticket_existant" in obstacles and intent in RELANCE_INFO:
+        label, delai = RELANCE_INFO[intent]
+        return "ok", f"Relance — {label}", (
+            f"Le {label} a déjà été créé. Pour faire une relance :\n"
+            "1. Retrouver le ticket/dossier existant dans le système.\n"
+            "2. Ajouter un commentaire de relance avec la date du jour et la demande du client.\n"
+            f"3. Informer le client que la demande est en cours de traitement. {delai}"
+        )
+
     if "blocage_fraude" in obstacles and intent == "identification":
         return "warn", "Ticket déblocage compte", "Blocage Fraude détecté : ne pas rejeter la pièce et ne pas débloquer directement. Créer le ticket de déblocage compte."
     if "double_identite" in obstacles and intent not in ["identification", "agent_reject_id"]:
